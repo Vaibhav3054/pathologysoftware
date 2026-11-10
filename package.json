@@ -1,0 +1,67 @@
+{
+  "name": "acharya-pathology",
+  "productName": "Acharya Pathology",
+  "version": "1.0.0",
+  "description": "Offline Desktop Pathology & Diagnostic Report Management Application",
+  "main": "electron/main.js",
+  "author": "Acharya Pathology - Silwani",
+  "license": "MIT",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:5173 && cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electron electron/main.js",
+    "dev": "concurrently -k -s first \"npm run dev:vite\" \"npm run dev:electron\"",
+    "build": "vite build",
+    "start": "electron electron/main.js",
+    "package": "vite build && electron-builder --win nsis portable",
+    "package:portable": "vite build && electron-builder --win portable",
+    "package:installer": "vite build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.acharyapathology.app",
+    "productName": "Acharya Pathology",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/sql.js/dist/sql-wasm.wasm"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Acharya Pathology"
+    },
+    "portable": {
+      "artifactName": "Acharya-Pathology-Portable.exe"
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.70.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sql.js": "^1.15.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^6.3.0",
+    "autoprefixer": "^10.6.2",
+    "concurrently": "^10.0.7",
+    "cross-env": "^10.1.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.7",
+    "wait-on": "^9.5.1"
+  }
+}

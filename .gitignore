@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+.npm/
+
+# Build artifacts
+dist/
+release/
+build/
+
+# SQLite databases & temp files
+*.db
+*.db-journal
+*.sqlite
+data/
+uploads/
+
+# OS / Environment files
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
