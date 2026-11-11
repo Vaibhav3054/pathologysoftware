@@ -7,12 +7,17 @@ import {
   Microscope, 
   UserCheck, 
   Settings, 
-  Database,
   ShieldCheck,
-  Activity
+  Activity,
+  LogOut,
+  Building2,
+  Crown
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ currentView, setCurrentView }) {
+  const { profile, tenant, tenantSettings, signOut, isSuperAdmin } = useAuth();
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'new-entry', label: 'New Entry', icon: UserPlus, highlight: true },
@@ -21,22 +26,49 @@ export default function Sidebar({ currentView, setCurrentView }) {
     { id: 'tests', label: 'Tests & X-Rays', icon: Microscope },
     { id: 'doctors', label: 'Reference Doctors', icon: UserCheck },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'backup', label: 'Backup', icon: Database },
   ];
+
+  if (isSuperAdmin) {
+    menuItems.unshift({
+      id: 'super-admin',
+      label: 'SaaS Admin Portal',
+      icon: Crown,
+      superBadge: true,
+    });
+  }
+
+  const labName = tenantSettings?.clinic_name || tenant?.name || 'ACHARYA PATHOLOGY';
+  const labLogo = tenantSettings?.logo_url;
 
   return (
     <aside className="no-print w-64 bg-slate-900 text-slate-200 flex flex-col justify-between shrink-0 select-none shadow-xl border-r border-slate-800">
       <div>
-        {/* Brand Header */}
+        {/* Lab Branding Header */}
         <div className="p-5 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/30">
-              <Activity className="w-6 h-6 stroke-[2.2]" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-white leading-tight">ACHARYA</h1>
-              <p className="text-xs font-semibold text-sky-400 tracking-wider">PATHOLOGY</p>
-              <p className="text-[10px] text-slate-400">Silwani, Raisen, M.P.</p>
+            {labLogo ? (
+              <img
+                src={labLogo}
+                alt="Logo"
+                className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 shadow-md"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/30">
+                <Activity className="w-6 h-6 stroke-[2.2]" />
+              </div>
+            )}
+            <div className="overflow-hidden">
+              <h1 className="text-sm font-bold tracking-tight text-white leading-tight truncate" title={labName}>
+                {labName}
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-semibold text-sky-400 tracking-wider uppercase">
+                  {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'lab_owner' ? 'Lab Admin' : profile?.role || 'Staff'}
+                </span>
+                {tenant?.is_test_lab && (
+                  <span className="bg-indigo-500/30 text-indigo-300 text-[9px] px-1 rounded font-bold">Demo</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -69,6 +101,28 @@ export default function Sidebar({ currentView, setCurrentView }) {
               );
             }
 
+            if (item.superBadge) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentView(item.id)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                    isActive
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 text-amber-400" />
+                    <span>{item.label}</span>
+                  </div>
+                  <span className="text-[9px] bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded font-black uppercase">
+                    Admin
+                  </span>
+                </button>
+              );
+            }
+
             return (
               <button
                 key={item.id}
@@ -87,13 +141,23 @@ export default function Sidebar({ currentView, setCurrentView }) {
         </nav>
       </div>
 
-      {/* Footer Info */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-2">
-        <div className="flex items-center gap-2 text-emerald-400 font-medium">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Offline SQLite Active</span>
+      {/* Footer Info & Sign Out */}
+      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-3">
+        <div className="flex items-center justify-between text-slate-400">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Cloud Supabase RLS</span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono">v2.0 SaaS</span>
         </div>
-        <p className="text-[11px] text-slate-400">Acharya Pathology Desktop v1.0</p>
+
+        <button
+          onClick={signOut}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 transition text-xs font-semibold border border-slate-700/60"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   );

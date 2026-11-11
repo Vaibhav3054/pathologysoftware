@@ -46,13 +46,6 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
     try {
       setHistoryLoading(true);
       const history = await api.getPatientHistory(patient.id);
-      
-      // Load services summary for each past report
-      for (const rep of history) {
-        const sList = await api.query('SELECT service_name FROM report_services WHERE report_id = ?', [rep.id]);
-        rep.services_summary = sList.map(s => s.service_name).join(', ');
-      }
-
       setPatientHistory(history);
     } catch (err) {
       console.error('Error fetching patient history:', err);

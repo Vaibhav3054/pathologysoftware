@@ -194,9 +194,9 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
           <header className="border-b-2 border-sky-900 pb-4 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {settings.logo_path ? (
+                {(settings.logo_url || settings.logo_path) ? (
                   <img
-                    src={settings.logo_path}
+                    src={settings.logo_url || settings.logo_path}
                     alt="Logo"
                     className="w-16 h-16 object-contain rounded-lg"
                   />
@@ -471,10 +471,10 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
 
             {/* Authorized Signatory Block (Guaranteed Never Cut Off) */}
             <div className="text-right flex flex-col items-end min-w-[210px] pb-1">
-              {settings.signatory_signature_path ? (
+              {(settings.signature_url || settings.signatory_signature_path) ? (
                 <div className="h-12 mb-1 flex items-end justify-end">
                   <img
-                    src={settings.signatory_signature_path}
+                    src={settings.signature_url || settings.signatory_signature_path}
                     alt="Authorized Signature"
                     className="max-h-12 object-contain"
                   />
