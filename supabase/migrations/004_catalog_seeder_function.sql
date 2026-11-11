@@ -3,6 +3,7 @@
 -- =========================================================================
 
 -- 1. Atomic Report Number Generator Function
+DROP FUNCTION IF EXISTS public.generate_next_report_number CASCADE;
 CREATE OR REPLACE FUNCTION public.generate_next_report_number(target_tenant_id UUID)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -41,6 +42,7 @@ END;
 $$;
 
 -- 2. Tenant Catalog Auto-Seeder Function (CBC, LFT, KFT, Sugars, Urine, X-Rays)
+DROP FUNCTION IF EXISTS public.seed_tenant_catalog CASCADE;
 CREATE OR REPLACE FUNCTION public.seed_tenant_catalog(target_tenant_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql

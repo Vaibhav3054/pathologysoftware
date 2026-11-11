@@ -58,6 +58,7 @@ CREATE POLICY "Allow user profile creation"
 
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
 -- Handles all 3 paths: Normal Customer, Super Admin Complimentary, and Test/Demo
+DROP FUNCTION IF EXISTS public.provision_new_tenant CASCADE;
 CREATE OR REPLACE FUNCTION public.provision_new_tenant(
   p_name TEXT,
   p_slug TEXT,
@@ -170,7 +171,5 @@ BEGIN
 END;
 $$;
 
--- Grant execution permissions
-GRANT EXECUTE ON FUNCTION public.provision_new_tenant TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.generate_next_report_number TO anon, authenticated, service_role;
+-- Grant execution permissions on all public functions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;

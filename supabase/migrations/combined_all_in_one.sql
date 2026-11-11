@@ -469,6 +469,7 @@ CREATE POLICY "Tenant staff can manage report xray results"
 -- =========================================================================
 
 -- 1. Atomic Report Number Generator Function
+DROP FUNCTION IF EXISTS public.generate_next_report_number CASCADE;
 CREATE OR REPLACE FUNCTION public.generate_next_report_number(target_tenant_id UUID)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -507,6 +508,7 @@ END;
 $$;
 
 -- 2. Tenant Catalog Auto-Seeder Function (CBC, LFT, KFT, Sugars, Urine, X-Rays)
+DROP FUNCTION IF EXISTS public.seed_tenant_catalog CASCADE;
 CREATE OR REPLACE FUNCTION public.seed_tenant_catalog(target_tenant_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -765,6 +767,7 @@ CREATE POLICY "Allow user profile creation"
 
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
 -- Handles all 3 paths: Normal Customer, Super Admin Complimentary, and Test/Demo
+DROP FUNCTION IF EXISTS public.provision_new_tenant CASCADE;
 CREATE OR REPLACE FUNCTION public.provision_new_tenant(
   p_name TEXT,
   p_slug TEXT,
@@ -877,7 +880,5 @@ BEGIN
 END;
 $$;
 
--- Grant execution permissions
-GRANT EXECUTE ON FUNCTION public.provision_new_tenant TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.generate_next_report_number TO anon, authenticated, service_role;
+-- Grant execution permissions on all public functions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
