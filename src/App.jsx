@@ -14,7 +14,7 @@ import SuperAdminPortal from './components/SuperAdminPortal';
 import LoginView from './components/LoginView';
 import RegisterLabView from './components/RegisterLabView';
 import { useAuth } from './context/AuthContext';
-import { Activity, AlertTriangle, ShieldCheck, LogOut, RefreshCw, CheckCircle2, ArrowRight, CreditCard } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, LogOut, RefreshCw, CheckCircle2, ArrowRight, CreditCard, Menu, UserPlus } from 'lucide-react';
 
 export default function App() {
   const { 
@@ -29,11 +29,14 @@ export default function App() {
     signOut,
     refreshSession,
     isTrial,
+    getTrialDaysRemaining,
     upgradeSubscription
   } = useAuth();
 
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [currentView, setCurrentView] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('clinic');
   const [activeReportId, setActiveReportId] = useState(null);
   const [prefilledPatient, setPrefilledPatient] = useState(null);
   const [upgradePlan, setUpgradePlan] = useState('monthly');
@@ -50,7 +53,7 @@ export default function App() {
   // Loading Screen
   if (loading) {
     return (
-      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white font-sans">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white font-sans px-4 text-center">
         <div className="w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center mb-4 shadow-xl shadow-sky-500/10">
           <Activity className="w-8 h-8 text-sky-400 stroke-[2.2] animate-pulse" />
         </div>
@@ -93,13 +96,13 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen w-screen flex items-center justify-center bg-slate-100 p-4 font-sans py-10">
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 font-sans py-8 sm:py-10">
         <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-6 text-white text-center">
+          <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-5 sm:p-6 text-white text-center">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center mx-auto mb-2">
               <AlertTriangle className="w-6 h-6 text-amber-400" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight">
               {isTrialExpired ? 'Your 3-Day Free Trial Has Ended' : 'Laboratory Subscription Paused'}
             </h2>
             <p className="text-xs text-sky-200 mt-0.5">
@@ -107,7 +110,7 @@ export default function App() {
             </p>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-5 sm:p-8 space-y-6">
             {upgradeError && (
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
                 {upgradeError}
@@ -233,28 +236,92 @@ export default function App() {
     setCurrentView('new-entry');
   };
 
+  const labDisplayName = tenantSettings?.clinic_name || tenant?.name || 'DIAGNOSTIC CENTRE';
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans">
-      {/* Sidebar (automatically hidden in print mode) */}
+    <div className="flex flex-col lg:flex-row min-h-screen lg:h-screen w-full lg:overflow-hidden bg-slate-100 font-sans">
+      {/* Mobile / Tablet Sticky Top Bar (Hidden on lg+ desktop and print) */}
+      <header className="no-print lg:hidden sticky top-0 z-30 bg-slate-900 text-white px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-md border-b border-slate-800">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 shrink-0"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-2 min-w-0">
+            {tenantSettings?.logo_url ? (
+              <img
+                src={tenantSettings.logo_url}
+                alt="Logo"
+                className="w-7 h-7 rounded-md object-contain bg-white p-0.5 shrink-0"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-md bg-sky-600 flex items-center justify-center shrink-0">
+                <Activity className="w-4 h-4 text-white" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <span className="font-bold text-xs tracking-tight text-white block truncate max-w-[170px] sm:max-w-[260px]">
+                {labDisplayName}
+              </span>
+              {isTrial && (
+                <span className="text-[9px] font-bold text-emerald-400 block leading-none mt-0.5">
+                  {getTrialDaysRemaining()}d Free Trial
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setPrefilledPatient(null);
+            setCurrentView('new-entry');
+          }}
+          className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 shrink-0"
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>New Entry</span>
+        </button>
+      </header>
+
+      {/* Sidebar (Desktop fixed + Mobile slide-out drawer) */}
       <Sidebar 
         currentView={currentView} 
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
         setCurrentView={(view) => {
           if (view !== 'new-entry') {
             setPrefilledPatient(null);
+          }
+          if (view === 'settings') {
+            setSettingsTab('clinic');
           }
           setCurrentView(view);
         }} 
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 h-screen overflow-y-auto bg-slate-100/90 p-4 sm:p-6 lg:p-8 print:p-0 print:m-0 print:overflow-visible print:h-auto">
+      <main className="flex-1 min-w-0 lg:h-screen lg:overflow-y-auto bg-slate-100/90 p-3.5 sm:p-6 lg:p-8 print:p-0 print:m-0 print:overflow-visible print:h-auto">
         {currentView === 'super-admin' && isSuperAdmin && (
           <SuperAdminPortal />
         )}
 
         {currentView === 'dashboard' && (
           <Dashboard 
-            setCurrentView={setCurrentView}
+            setCurrentView={(view) => {
+              if (view === 'settings-subscription') {
+                setSettingsTab('subscription');
+                setCurrentView('settings');
+              } else {
+                setCurrentView(view);
+              }
+            }}
             onViewReport={handleViewReport}
             onEditReport={handleEditReport}
           />
@@ -303,7 +370,7 @@ export default function App() {
 
         {currentView === 'doctors' && <DoctorsManager />}
 
-        {currentView === 'settings' && <SettingsView />}
+        {currentView === 'settings' && <SettingsView initialTab={settingsTab} />}
 
         {currentView === 'backup' && <BackupView />}
       </main>

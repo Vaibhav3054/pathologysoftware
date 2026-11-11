@@ -10,12 +10,12 @@ import {
   ShieldCheck,
   Activity,
   LogOut,
-  Building2,
-  Crown
+  Crown,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function Sidebar({ currentView, setCurrentView }) {
+export default function Sidebar({ currentView, setCurrentView, isOpen = false, onClose }) {
   const { profile, tenant, tenantSettings, signOut, isSuperAdmin, isTrial, getTrialDaysRemaining } = useAuth();
 
   const menuItems = [
@@ -40,28 +40,33 @@ export default function Sidebar({ currentView, setCurrentView }) {
   const labName = tenantSettings?.clinic_name || tenant?.name || 'DIAGNOSTIC CENTRE';
   const labLogo = tenantSettings?.logo_url;
 
-  return (
-    <aside className="no-print w-64 bg-slate-900 text-slate-200 flex flex-col justify-between shrink-0 select-none shadow-xl border-r border-slate-800">
-      <div>
+  const handleSelectView = (viewId) => {
+    setCurrentView(viewId);
+    if (onClose) onClose();
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col justify-between h-full bg-slate-900 text-slate-200 select-none">
+      <div className="overflow-y-auto flex-1">
         {/* Lab Branding Header */}
-        <div className="p-5 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-3">
+        <div className="p-5 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             {labLogo ? (
               <img
                 src={labLogo}
                 alt="Logo"
-                className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 shadow-md"
+                className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 shadow-md shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/30">
+              <div className="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/30 shrink-0">
                 <Activity className="w-6 h-6 stroke-[2.2]" />
               </div>
             )}
-            <div className="overflow-hidden">
+            <div className="overflow-hidden min-w-0">
               <h1 className="text-sm font-bold tracking-tight text-white leading-tight truncate" title={labName}>
                 {labName}
               </h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-[10px] font-semibold text-sky-400 tracking-wider uppercase">
                   {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'lab_owner' ? 'Lab Admin' : profile?.role || 'Staff'}
                 </span>
@@ -76,6 +81,18 @@ export default function Sidebar({ currentView, setCurrentView }) {
               </div>
             </div>
           </div>
+
+          {/* Mobile Drawer Close Button */}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0"
+              aria-label="Close navigation menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}
@@ -88,7 +105,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentView(item.id)}
+                  onClick={() => handleSelectView(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-150 shadow-md ${
                     isActive
                       ? 'bg-sky-500 text-white shadow-sky-500/30 scale-[1.01]'
@@ -110,7 +127,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentView(item.id)}
+                  onClick={() => handleSelectView(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
                     isActive
                       ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm'
@@ -131,7 +148,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
             return (
               <button
                 key={item.id}
-                onClick={() => setCurrentView(item.id)}
+                onClick={() => handleSelectView(item.id)}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-slate-800 text-sky-400 font-semibold border-l-4 border-sky-400 pl-2.5 shadow-sm'
@@ -147,7 +164,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
       </div>
 
       {/* Footer Info & Sign Out */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-3">
+      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-3 shrink-0">
         <div className="flex items-center justify-between text-slate-400">
           <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -158,12 +175,38 @@ export default function Sidebar({ currentView, setCurrentView }) {
 
         <button
           onClick={signOut}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 transition text-xs font-semibold border border-slate-700/60"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 transition text-xs font-semibold border border-slate-700/60"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Docked Sidebar */}
+      <aside className="no-print hidden lg:flex w-64 bg-slate-900 flex-col shrink-0 shadow-xl border-r border-slate-800 h-full">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile / Tablet Slide-out Drawer */}
+      {isOpen && (
+        <div className="no-print fixed inset-0 z-50 lg:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <aside className="relative w-72 max-w-[82vw] h-full bg-slate-900 shadow-2xl border-r border-slate-800 z-10 flex flex-col">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

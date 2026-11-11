@@ -106,28 +106,28 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
   const { report, services, testResults, xrayResults } = data;
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 sm:space-y-6 pb-20">
       {/* Top Floating Action Header (Hidden during physical printing) */}
-      <div className="no-print max-w-4xl mx-auto bg-white p-4 rounded-2xl border border-slate-200/80 shadow-md flex flex-wrap items-center justify-between gap-4 sticky top-4 z-30">
-        <div className="flex items-center gap-3">
+      <div className="no-print max-w-4xl mx-auto bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 lg:sticky lg:top-4 z-30">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition shrink-0"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="min-w-0">
             <span className="font-mono font-bold text-sky-800 text-sm">{report.report_number}</span>
-            <span className="text-slate-500 text-xs ml-2">— A4 Print Preview</span>
+            <span className="text-slate-500 text-xs ml-1.5 sm:ml-2">— A4 Print Preview</span>
           </div>
         </div>
 
         {/* Print Configuration Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Quick Payment Display Selector on Preview Bar */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs text-slate-700">
-            <span className="text-[11px] text-slate-400 font-semibold uppercase">Print Payment:</span>
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs text-slate-700 w-full sm:w-auto justify-between sm:justify-start">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase">Payment:</span>
             <select
               value={paymentPrintMode}
               onChange={(e) => setPaymentPrintMode(e.target.value)}
@@ -158,32 +158,39 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
             Edit Results
           </button>
 
-          <button
-            onClick={handleExportPDFClick}
-            disabled={isExporting}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
-          </button>
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleExportPDFClick}
+              disabled={isExporting}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold shadow-sm transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
+            </button>
 
-          <button
-            onClick={handlePrintClick}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-600/30 transition active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>🖨 Print A4 Report</span>
-          </button>
+            <button
+              onClick={handlePrintClick}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 sm:py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-600/30 transition active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span>🖨 Print A4</span>
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Mobile Touch Panning Hint */}
+      <div className="no-print sm:hidden text-center text-[11px] font-medium text-slate-500 bg-white/80 border border-slate-200/70 rounded-xl py-1.5 px-3 max-w-xs mx-auto">
+        ↔ Swipe horizontally on the sheet to view full A4 page
       </div>
 
       {/* =========================================================================
           AUTHENTIC A4 REPORT DOCUMENT (PREVIEW & PRINT CONTAINER)
           Standard A4 width: 210mm (~794px at 96 DPI screen preview)
-          CHANGE 1: Uses standard block layout so pagination and footer/signature 
-          never get clipped or overflow outside printable page area.
+          Wrapped in horizontal touch-scroll container on narrow phone screens
           ========================================================================= */}
-      <div className="report-page-container max-w-[210mm] min-h-[297mm] mx-auto bg-white border border-slate-300 shadow-xl print:shadow-none print:border-none p-8 md:p-12 text-slate-900 leading-normal block">
+      <div className="w-full overflow-x-auto pb-4 print:overflow-visible print:pb-0">
+        <div className="report-page-container min-w-[680px] sm:min-w-0 max-w-[210mm] min-h-[297mm] mx-auto bg-white border border-slate-300 shadow-xl print:shadow-none print:border-none print:min-w-0 p-6 sm:p-8 md:p-12 text-slate-900 leading-normal block">
         
         {/* SECTION A: CLINIC HEADER (SUPPRESSED IF USING PRE-PRINTED LETTERHEAD PAD) */}
         {hideHeaderForLetterhead ? (
@@ -489,6 +496,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
           </div>
         </footer>
 
+        </div>
       </div>
 
       {/* =========================================================================
@@ -497,7 +505,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
           ========================================================================= */}
       {showPaymentModal && (
         <div className="no-print fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
             {/* Modal Header */}
             <div className="p-5 bg-gradient-to-r from-sky-900 to-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">

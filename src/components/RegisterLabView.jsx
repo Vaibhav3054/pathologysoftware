@@ -84,10 +84,10 @@ export default function RegisterLabView({ onSwitchToLogin }) {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-slate-100 p-4 font-sans py-12">
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 font-sans py-8 sm:py-12">
       <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-6 text-white text-center">
+        <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-5 sm:p-6 text-white text-center">
           <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center mx-auto mb-2 shadow">
             <Building2 className="w-6 h-6 text-sky-400" />
           </div>
@@ -96,7 +96,7 @@ export default function RegisterLabView({ onSwitchToLogin }) {
         </div>
 
         {/* Form Container */}
-        <div className="p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-6">
           {errorMsg && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />

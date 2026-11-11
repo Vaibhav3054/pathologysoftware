@@ -101,8 +101,8 @@ export default function DoctorsManager() {
 
       {/* Search & List Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 sm:max-w-md w-full">
             <input
               type="text"
               placeholder="Search reference doctors..."
@@ -112,7 +112,7 @@ export default function DoctorsManager() {
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
           </div>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-xs font-semibold text-slate-500 shrink-0">
             Total Doctors: {doctors.length}
           </span>
         </div>
@@ -129,17 +129,17 @@ export default function DoctorsManager() {
             {filteredDoctors.map((doc, idx) => (
               <div
                 key={doc.id}
-                className="p-4 hover:bg-slate-50/70 transition flex items-center justify-between text-xs"
+                className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-2 text-xs"
               >
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-slate-400 w-6 text-right">{idx + 1}.</span>
-                  <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-xs">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                  <span className="font-mono text-slate-400 w-5 text-right shrink-0">{idx + 1}.</span>
+                  <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-xs shrink-0">
                     {doc.name.replace(/^(Dr\.\s*)/i, '').charAt(0)}
                   </div>
-                  <span className="font-semibold text-slate-800 text-sm">{doc.name}</span>
+                  <span className="font-semibold text-slate-800 text-sm truncate">{doc.name}</span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => setEditingDoctor(doc)}
                     className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition"
@@ -164,7 +164,7 @@ export default function DoctorsManager() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-sm">Add Reference Doctor</h3>
               <button onClick={() => setShowAddModal(false)}><X className="w-4 h-4 text-slate-400" /></button>
@@ -207,7 +207,7 @@ export default function DoctorsManager() {
       {/* Edit Modal */}
       {editingDoctor && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-sm">Edit Doctor Name</h3>
               <button onClick={() => setEditingDoctor(null)}><X className="w-4 h-4 text-slate-400" /></button>

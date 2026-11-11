@@ -30,10 +30,10 @@ export default function LoginView({ onSwitchToRegister }) {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-slate-100 p-4 font-sans">
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-8 text-white text-center relative overflow-hidden">
+        <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-6 sm:p-8 text-white text-center relative overflow-hidden">
           <div className="w-14 h-14 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center mx-auto mb-3 shadow-lg">
             <Activity className="w-8 h-8 text-sky-400 stroke-[2.2]" />
           </div>
@@ -42,7 +42,7 @@ export default function LoginView({ onSwitchToRegister }) {
         </div>
 
         {/* Form Container */}
-        <div className="p-8 space-y-6">
+        <div className="p-6 sm:p-8 space-y-6">
           <div className="text-center">
             <h2 className="text-lg font-bold text-slate-800">Sign in to your Laboratory</h2>
             <p className="text-xs text-slate-500 mt-1">Enter your staff or owner credentials to continue</p>

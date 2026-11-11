@@ -21,13 +21,16 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  CreditCard,
+  ArrowRight
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 
-export default function SettingsView() {
+export default function SettingsView({ initialTab = 'clinic' }) {
   const { tenant, profile, subscription, isLabOwner, isSuperAdmin, isTrial, getTrialDaysRemaining, upgradeSubscription } = useAuth();
 
   const [settings, setSettings] = useState({
@@ -50,11 +53,20 @@ export default function SettingsView() {
     next_report_number: 1
   });
 
-  const [activeTab, setActiveTab] = useState('clinic'); // 'clinic' | 'staff' | 'subscription'
+  const [activeTab, setActiveTab] = useState(initialTab || 'clinic'); // 'clinic' | 'staff' | 'subscription'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Upgrade state for trial users
+  const [upgradePlan, setUpgradePlan] = useState('monthly');
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState('');
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   // Staff Management State
   const [staffList, setStaffList] = useState([]);
@@ -228,40 +240,40 @@ export default function SettingsView() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b border-slate-200 pb-2.5">
         <button
           onClick={() => setActiveTab('clinic')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === 'clinic'
               ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-200/60'
+              : 'text-slate-600 hover:bg-slate-200/60 bg-white sm:bg-transparent border border-slate-200 sm:border-transparent'
           }`}
         >
-          <Building className="w-4 h-4" />
-          <span>Clinic & Print Setup</span>
+          <Building className="w-4 h-4 shrink-0" />
+          <span>Clinic & Print</span>
         </button>
 
         <button
           onClick={() => setActiveTab('staff')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === 'staff'
               ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-200/60'
+              : 'text-slate-600 hover:bg-slate-200/60 bg-white sm:bg-transparent border border-slate-200 sm:border-transparent'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Staff & Team ({staffList.length})</span>
+          <Users className="w-4 h-4 shrink-0" />
+          <span>Staff ({staffList.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('subscription')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === 'subscription'
               ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-200/60'
+              : 'text-slate-600 hover:bg-slate-200/60 bg-white sm:bg-transparent border border-slate-200 sm:border-transparent'
           }`}
         >
-          <ShieldCheck className="w-4 h-4" />
+          <ShieldCheck className="w-4 h-4 shrink-0" />
           <span>Subscription & Cloud</span>
         </button>
       </div>
@@ -621,8 +633,8 @@ export default function SettingsView() {
             </div>
           )}
 
-          {/* Staff List Table */}
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+          {/* Desktop Staff List Table */}
+          <div className="hidden md:block overflow-x-auto border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                 <tr>
@@ -673,12 +685,54 @@ export default function SettingsView() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Staff Cards */}
+          <div className="block md:hidden border border-slate-200 rounded-2xl divide-y divide-slate-100">
+            {staffList.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 text-xs">
+                No additional staff accounts added yet.
+              </div>
+            ) : (
+              staffList.map((user) => (
+                <div key={user.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-800 text-sm">
+                        {user.full_name || 'Staff Member'}
+                      </div>
+                      <div className="text-xs font-mono text-slate-500 mt-0.5 break-all">
+                        {user.email}
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
+                      user.role === 'lab_owner'
+                        ? 'bg-purple-100 text-purple-800'
+                        : user.role === 'receptionist'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                      <Check className="w-3 h-3" />
+                      <span>Active Account</span>
+                    </span>
+                    <span className="text-slate-400 font-mono">
+                      Joined {new Date(user.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
       {/* TAB 3: Subscription & Cloud Details */}
       {activeTab === 'subscription' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6 space-y-6">
           <div className="pb-4 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 text-base">Cloud Subscription & Multi-Tenant Status</h3>
             <p className="text-xs text-slate-500">Live details regarding your cloud laboratory isolation and hosting plan</p>
@@ -691,17 +745,17 @@ export default function SettingsView() {
                 <span>Tenant Isolation</span>
               </div>
               <div className="space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between">
-                  <span className="font-medium">Tenant ID:</span>
-                  <span className="font-mono text-[11px] font-bold text-slate-800 truncate max-w-[200px]" title={tenant?.id}>
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium shrink-0">Tenant ID:</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-800 truncate" title={tenant?.id}>
                     {tenant?.id || 'N/A'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="font-medium">Lab Slug:</span>
-                  <span className="font-mono text-[11px] text-slate-700">{tenant?.slug || 'lab'}</span>
+                  <span className="font-mono text-[11px] text-slate-700 truncate">{tenant?.slug || 'lab'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="font-medium">Demo / Test Lab:</span>
                   <span className="font-bold">{tenant?.is_test_lab ? 'Yes (Isolated Demo)' : 'No (Production)'}</span>
                 </div>
@@ -714,17 +768,17 @@ export default function SettingsView() {
                 <span>Subscription Plan</span>
               </div>
               <div className="space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="font-medium">Plan Type:</span>
                   <span className="font-bold text-slate-800 uppercase">{subscription?.plan_type || 'Monthly'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="font-medium">Access Source:</span>
                   <span className="font-bold uppercase text-sky-700">
                     {subscription?.subscription_source || 'complimentary'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="font-medium">Expires On:</span>
                   <span className="font-mono font-bold text-slate-800">
                     {subscription?.is_unlimited ? 'Lifetime / Unlimited' : subscription?.expires_at ? new Date(subscription.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Active'}
@@ -733,13 +787,99 @@ export default function SettingsView() {
               </div>
             </div>
           </div>
+
+          {/* Upgrade Subscription Option for Free Trial Labs */}
+          {isTrial && (
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-sky-50 to-emerald-50/40 rounded-2xl border border-sky-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <h4 className="font-bold text-slate-900 text-sm">Upgrade from 3-Day Free Trial</h4>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {getTrialDaysRemaining()} day(s) remaining in your trial. Activate a full plan now to guarantee uninterrupted access.
+                  </p>
+                </div>
+              </div>
+
+              {upgradeError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                  {upgradeError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className={`p-3.5 rounded-xl border-2 cursor-pointer transition select-none ${
+                  upgradePlan === 'monthly' ? 'bg-white border-sky-600 shadow-sm' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="settingsUpgradePlan"
+                    value="monthly"
+                    checked={upgradePlan === 'monthly'}
+                    onChange={() => setUpgradePlan('monthly')}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs">Monthly Plan</span>
+                    <span className="text-sm font-black font-mono text-sky-900">₹999/mo</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">Full 30-day access • Unlimited patient records</p>
+                </label>
+
+                <label className={`p-3.5 rounded-xl border-2 cursor-pointer transition select-none ${
+                  upgradePlan === 'yearly' ? 'bg-white border-sky-600 shadow-sm' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="settingsUpgradePlan"
+                    value="yearly"
+                    checked={upgradePlan === 'yearly'}
+                    onChange={() => setUpgradePlan('yearly')}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs">
+                      Annual Plan <span className="ml-1 text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">Save 16%</span>
+                    </span>
+                    <span className="text-sm font-black font-mono text-sky-900">₹9,999/yr</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">Full 365-day access • Priority support</p>
+                </label>
+              </div>
+
+              <button
+                type="button"
+                disabled={upgrading}
+                onClick={async () => {
+                  try {
+                    setUpgrading(true);
+                    setUpgradeError('');
+                    await upgradeSubscription(upgradePlan);
+                    setSuccessMsg('Subscription activated successfully!');
+                    setTimeout(() => setSuccessMsg(''), 4000);
+                  } catch (err) {
+                    setUpgradeError(err.message || 'Failed to upgrade subscription.');
+                  } finally {
+                    setUpgrading(false);
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>{upgrading ? 'Activating Plan...' : `Activate ${upgradePlan === 'yearly' ? 'Annual Plan (₹9,999)' : 'Monthly Plan (₹999)'}`}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Add Staff Modal */}
       {showAddStaffModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white max-w-md w-full max-h-[90vh] overflow-y-auto rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h4 className="font-bold text-slate-900 text-sm">Add New Staff Account</h4>
               <button

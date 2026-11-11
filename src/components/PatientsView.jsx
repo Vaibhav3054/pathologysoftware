@@ -87,7 +87,7 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
       {/* Main Split Layout: Patient Directory on left, History on right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column: Patients List */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-[650px]">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col max-h-[340px] lg:h-[650px] lg:max-h-none">
           <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
               Directory ({patients.length})
@@ -182,67 +182,124 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
                     <p>No diagnostic reports registered for this patient yet.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-100">
-                        <tr>
-                          <th className="py-3 px-4">Report No</th>
-                          <th className="py-3 px-4">Date</th>
-                          <th className="py-3 px-4">Diagnostic Services</th>
-                          <th className="py-3 px-4">Payment</th>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {patientHistory.map(rep => (
-                          <tr key={rep.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-sky-700">
-                              {rep.report_number}
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap text-slate-600">
-                              {rep.registration_date}
-                            </td>
-                            <td className="py-3.5 px-4 max-w-xs truncate text-slate-700 font-medium">
-                              {rep.services_summary || 'N/A'}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                rep.payment_status === 'Paid'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-                              }`}>
-                                {rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})
+                  <>
+                    {/* Desktop History Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-100">
+                          <tr>
+                            <th className="py-3 px-4">Report No</th>
+                            <th className="py-3 px-4">Date</th>
+                            <th className="py-3 px-4">Diagnostic Services</th>
+                            <th className="py-3 px-4">Payment</th>
+                            <th className="py-3 px-4">Status</th>
+                            <th className="py-3 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {patientHistory.map(rep => (
+                            <tr key={rep.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3.5 px-4 font-mono font-bold text-sky-700">
+                                {rep.report_number}
+                              </td>
+                              <td className="py-3.5 px-4 whitespace-nowrap text-slate-600">
+                                {rep.registration_date}
+                              </td>
+                              <td className="py-3.5 px-4 max-w-xs truncate text-slate-700 font-medium">
+                                {rep.services_summary || 'N/A'}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  rep.payment_status === 'Paid'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  {rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
+                                  rep.status === 'completed' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {rep.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                                <button
+                                  onClick={() => onViewReport(rep.id)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition"
+                                  title="View & Print Report"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => onEditReport(rep.id)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition"
+                                  title="Edit Results"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile History Cards */}
+                    <div className="block md:hidden divide-y divide-slate-100">
+                      {patientHistory.map(rep => (
+                        <div key={rep.id} className="p-4 space-y-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="font-mono font-bold text-xs text-sky-700 block">
+                                {rep.report_number}
                               </span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
-                                rep.status === 'completed' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-600'
-                              }`}>
-                                {rep.status}
+                              <span className="text-[11px] text-slate-500">
+                                {rep.registration_date}
                               </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
+                              rep.status === 'completed' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {rep.status}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 line-clamp-2">
+                            {rep.services_summary || 'N/A'}
+                          </p>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              rep.payment_status === 'Paid'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              {rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})
+                            </span>
+
+                            <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => onViewReport(rep.id)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition"
-                                title="View & Print Report"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-semibold text-xs border border-sky-200"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
                               </button>
                               <button
                                 onClick={() => onEditReport(rep.id)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition"
-                                title="Edit Results"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-semibold text-xs border border-amber-200"
                               >
-                                <Edit3 className="w-4 h-4" />
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
                               </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </>

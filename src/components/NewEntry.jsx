@@ -248,12 +248,12 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
         </div>
 
         {/* Auto Generated Report Info Box */}
-        <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-xs">
+        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs w-full sm:w-auto">
           <div>
             <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Report Number</span>
             <span className="font-mono font-bold text-sm text-sky-700">{reportNumber || 'Generating...'}</span>
           </div>
-          <div className="h-7 w-px bg-slate-200" />
+          <div className="hidden sm:block h-7 w-px bg-slate-200" />
           <div>
             <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Date & Time</span>
             <span className="font-semibold text-slate-700">{registrationDate} • {registrationTime}</span>
@@ -401,9 +401,9 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
         </div>
 
         {/* SECTION 2: SERVICES SELECTION (BLOOD TESTS & X-RAYS) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* 🩸 BLOOD TESTS */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col h-[420px]">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 flex flex-col h-[320px] sm:h-[420px]">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🩸</span>
@@ -434,21 +434,21 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                   <div
                     key={`blood-${test.id}`}
                     onClick={() => toggleService(test)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                    className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
                       selected
                         ? 'bg-rose-50/70 border-rose-300 text-slate-900 shadow-xs'
                         : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition ${
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
                         selected ? 'bg-rose-600 border-rose-600 text-white' : 'border-slate-300 bg-white'
                       }`}>
                         {selected && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
-                      <span className="font-medium">{test.name}</span>
+                      <span className="font-medium truncate">{test.name}</span>
                     </div>
-                    <span className="font-semibold font-mono text-slate-700">₹{test.price}</span>
+                    <span className="font-semibold font-mono text-slate-700 shrink-0">₹{test.price}</span>
                   </div>
                 );
               })}
@@ -456,7 +456,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
           </div>
 
           {/* 🩻 X-RAY SERVICES */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col h-[420px]">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 flex flex-col h-[320px] sm:h-[420px]">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🩻</span>
@@ -487,21 +487,21 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                   <div
                     key={`xray-${xray.id}`}
                     onClick={() => toggleService(xray)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                    className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
                       selected
                         ? 'bg-indigo-50/70 border-indigo-300 text-slate-900 shadow-xs'
                         : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition ${
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
                         selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
                       }`}>
                         {selected && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
-                      <span className="font-medium">{xray.name}</span>
+                      <span className="font-medium truncate">{xray.name}</span>
                     </div>
-                    <span className="font-semibold font-mono text-slate-700">₹{xray.price}</span>
+                    <span className="font-semibold font-mono text-slate-700 shrink-0">₹{xray.price}</span>
                   </div>
                 );
               })}
@@ -530,22 +530,22 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
               ) : (
                 <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 max-h-52 overflow-y-auto space-y-1.5 divide-y divide-slate-100">
                   {selectedServices.map((s, idx) => (
-                    <div key={`${s.category}-${s.id}`} className="flex items-center justify-between text-xs pt-1.5 first:pt-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400 font-mono w-4">{idx + 1}.</span>
-                        <span className="font-medium text-slate-800">{s.name}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold uppercase ${
+                    <div key={`${s.category}-${s.id}`} className="flex items-center justify-between gap-2 text-xs pt-2 first:pt-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-slate-400 font-mono w-4 shrink-0">{idx + 1}.</span>
+                        <span className="font-medium text-slate-800 truncate">{s.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold uppercase shrink-0 ${
                           s.category === 'blood' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'
                         }`}>
                           {s.category}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5 shrink-0">
                         <span className="font-mono font-semibold text-slate-700">₹{s.price}</span>
                         <button
                           type="button"
                           onClick={() => toggleService(s)}
-                          className="text-slate-400 hover:text-rose-500"
+                          className="p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -572,7 +572,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                       key={status}
                       type="button"
                       onClick={() => setPaymentStatus(status)}
-                      className={`py-1.5 rounded-lg font-semibold transition ${
+                      className={`py-2 sm:py-1.5 rounded-lg font-semibold transition ${
                         paymentStatus === status
                           ? status === 'Paid'
                             ? 'bg-emerald-500 text-white shadow'
@@ -639,7 +639,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
       {/* Quick Add Doctor Modal */}
       {showAddDoctorModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-base">Add New Reference Doctor</h3>
               <button onClick={() => setShowAddDoctorModal(false)}><X className="w-4 h-4 text-slate-400" /></button>
