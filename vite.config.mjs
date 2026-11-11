@@ -23,5 +23,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/supabase-api': {
+        target: 'https://zgudwlzlmroxkrkbmqxl.supabase.co',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/supabase-api/, ''),
+      },
+    },
   },
 });
