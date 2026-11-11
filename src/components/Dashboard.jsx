@@ -11,11 +11,14 @@ import {
   Eye, 
   Edit3,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard({ setCurrentView, onViewReport, onEditReport }) {
+  const { tenant, tenantSettings, isTrial, getTrialDaysRemaining } = useAuth();
   const [stats, setStats] = useState({
     patientsToday: 0,
     reportsToday: 0,
@@ -57,8 +60,12 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
             <Calendar className="w-3.5 h-3.5" />
             <span>{todayFormatted}</span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Acharya Pathology & Diagnostic Centre</h2>
-          <p className="text-sm text-sky-200/90 mt-0.5">Silwani, Dist. Raisen, Madhya Pradesh</p>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {tenantSettings?.clinic_name || tenant?.name || 'Diagnostic Laboratory Centre'}
+          </h2>
+          <p className="text-sm text-sky-200/90 mt-0.5">
+            {tenantSettings?.address || tenantSettings?.tagline || 'Clinical Pathology & Diagnostic Centre'}
+          </p>
         </div>
 
         {/* Quick Launch Buttons */}
@@ -86,6 +93,35 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
           </button>
         </div>
       </div>
+
+      {/* 3-Day Free Trial Notice Banner */}
+      {isTrial && (
+        <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-300/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-800 text-xs">3-Day Free Trial Active</span>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {getTrialDaysRemaining()} day(s) left
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                You have full access to patient registrations, medical test results, and A4 report printing.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setCurrentView('settings')}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm shrink-0 cursor-pointer"
+          >
+            Upgrade to Full Plan
+          </button>
+        </div>
+      )}
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -137,6 +173,35 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
           </div>
         </div>
       </div>
+
+      {/* 3-Day Free Trial Notice Banner */}
+      {isTrial && (
+        <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-300/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-800 text-xs">3-Day Free Trial Active</span>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {getTrialDaysRemaining()} day(s) left
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                You have full access to patient registrations, medical test results, and A4 report printing.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setCurrentView('settings')}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm shrink-0 cursor-pointer"
+          >
+            Upgrade to Full Plan
+          </button>
+        </div>
+      )}
 
       {/* Recent Reports Table Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">

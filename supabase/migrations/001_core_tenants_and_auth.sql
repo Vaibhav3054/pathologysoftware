@@ -26,9 +26,9 @@ CREATE INDEX IF NOT EXISTS idx_tenants_status ON public.tenants(status);
 CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  plan_type TEXT NOT NULL DEFAULT 'monthly' CHECK (plan_type IN ('monthly', 'yearly', 'custom', 'unlimited')),
-  subscription_source TEXT NOT NULL DEFAULT 'payment' CHECK (subscription_source IN ('payment', 'super_admin', 'complimentary', 'test_demo')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled', 'grace_period')),
+  plan_type TEXT NOT NULL DEFAULT 'trial' CHECK (plan_type IN ('trial', 'monthly', 'yearly', 'custom', 'unlimited')),
+  subscription_source TEXT NOT NULL DEFAULT 'trial' CHECK (subscription_source IN ('trial', 'payment', 'super_admin', 'complimentary', 'test_demo')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'trial', 'expired', 'cancelled', 'grace_period')),
   billing_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ, -- NULL when is_unlimited is true

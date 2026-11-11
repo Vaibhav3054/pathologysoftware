@@ -175,7 +175,7 @@ export default function DoctorsManager() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor Name & Qualifications</label>
                 <input
                   type="text"
-                  placeholder="e.g. Dr. R. K. Sharma (M.B.B.S., Silwani)"
+                  placeholder="e.g. Dr. R. K. Sharma (M.B.B.S., M.D.)"
                   value={newDoctorName}
                   onChange={(e) => setNewDoctorName(e.target.value)}
                   autoFocus

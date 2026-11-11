@@ -1,6 +1,6 @@
 {
-  "name": "acharya-pathology-saas",
-  "productName": "Acharya Pathology SaaS",
+  "name": "pathology-lab-saas",
+  "productName": "Pathology Diagnostic SaaS",
   "version": "2.0.0",
   "description": "Cloud-Based Multi-Tenant Diagnostic & Pathology Laboratory Management System",
   "type": "module",

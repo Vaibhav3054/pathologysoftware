@@ -650,7 +650,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor Name & Degree</label>
                 <input
                   type="text"
-                  placeholder="e.g. Dr. A. K. Jain (M.B.B.S., Silwani)"
+                  placeholder="e.g. Dr. A. K. Jain (M.B.B.S., M.D.)"
                   value={newDoctorInput}
                   onChange={(e) => setNewDoctorInput(e.target.value)}
                   autoFocus

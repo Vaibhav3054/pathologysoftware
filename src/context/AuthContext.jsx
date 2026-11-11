@@ -111,7 +111,7 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  // Onboard New Lab & Owner Account (Normal Customer Self-Service)
+  // Onboard New Lab & Owner Account with 3-Day Automatic Free Trial
   const registerLab = async ({
     email,
     password,
@@ -119,7 +119,6 @@ export function AuthProvider({ children }) {
     labName,
     labPhone,
     labAddress,
-    planType = 'monthly',
   }) => {
     // 1. Create Supabase Auth User
     const { data: authData, error: authErr } = await supabase.auth.signUp({
@@ -132,19 +131,19 @@ export function AuthProvider({ children }) {
     const userId = authData.user.id;
     const slug = labName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-    // 2. Call stored function to provision tenant, seed standard tests, and create subscription
+    // 2. Call stored function to provision tenant with 3-Day Free Trial
     const { data: provData, error: provErr } = await supabase.rpc('provision_new_tenant', {
       p_name: labName.trim(),
       p_slug: slug,
       p_phone: labPhone || '',
       p_email: email.trim(),
       p_address: labAddress || '',
-      p_plan_type: planType,
-      p_subscription_source: 'payment',
-      p_duration_days: planType === 'yearly' ? 365 : 30,
+      p_plan_type: 'trial',
+      p_subscription_source: 'trial',
+      p_duration_days: 3,
       p_is_unlimited: false,
       p_is_test_lab: false,
-      p_notes: 'Online self-service signup',
+      p_notes: '3-Day Automatic Free Trial',
       p_admin_user_id: null,
       p_owner_id: userId,
       p_owner_name: fullName.trim(),
@@ -183,6 +182,26 @@ export function AuthProvider({ children }) {
       hasSession: false, 
       email: email.trim() 
     };
+  };
+
+  // Upgrade or Activate Paid Subscription (Monthly or Yearly)
+  const upgradeSubscription = async (planType = 'monthly') => {
+    if (!tenant?.id) throw new Error('No active laboratory found.');
+    await api.activatePaidSubscription({
+      tenantId: tenant.id,
+      planType,
+      notes: `Online upgrade to ${planType} plan`,
+    });
+    await refreshSession();
+  };
+
+  const isTrial = Boolean(subscription?.plan_type === 'trial' || subscription?.subscription_source === 'trial');
+
+  const getTrialDaysRemaining = () => {
+    if (!subscription?.expires_at) return 0;
+    const diffMs = new Date(subscription.expires_at) - new Date();
+    if (diffMs <= 0) return 0;
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
   const signOut = async () => {
@@ -236,6 +255,9 @@ export function AuthProvider({ children }) {
         isReceptionist,
         isTechnician,
         isSubscriptionActive,
+        isTrial,
+        getTrialDaysRemaining,
+        upgradeSubscription,
       }}
     >
       {children}

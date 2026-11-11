@@ -813,6 +813,17 @@ export const api = {
     return data;
   },
 
+  async activatePaidSubscription({ tenantId = null, planType = 'monthly', notes = 'Online Subscription Activation' }) {
+    const tid = await this.getActiveTenantId(tenantId);
+    const { data, error } = await supabase.rpc('activate_paid_subscription', {
+      target_tenant_id: tid,
+      p_plan_type: planType,
+      p_payment_notes: notes,
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async updateTenantSubscription(subscriptionId, updates) {
     const { data, error } = await supabase
       .from('tenant_subscriptions')

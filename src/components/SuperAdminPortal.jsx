@@ -16,7 +16,9 @@ import {
   FlaskConical,
   ArrowRight,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +35,7 @@ export default function SuperAdminPortal() {
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('Welcome123!');
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
 
@@ -466,7 +469,7 @@ export default function SuperAdminPortal() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Acharya Pathology & Diagnostic Centre"
+                      placeholder="e.g. City Diagnostic & Pathology Lab"
                       value={labName}
                       onChange={(e) => setLabName(e.target.value)}
                       required
@@ -489,7 +492,7 @@ export default function SuperAdminPortal() {
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Address</label>
                     <input
                       type="text"
-                      placeholder="Silwani, Dist. Raisen, Madhya Pradesh - 464886"
+                      placeholder="Enter street, city, state - PIN"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
@@ -506,7 +509,7 @@ export default function SuperAdminPortal() {
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Owner Name</label>
                     <input
                       type="text"
-                      placeholder="Dr. S. K. Acharya"
+                      placeholder="Dr. Name / Lab Director"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
@@ -519,7 +522,7 @@ export default function SuperAdminPortal() {
                     </label>
                     <input
                       type="email"
-                      placeholder="acharya@pathology.com"
+                      placeholder="owner@pathologylab.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -531,13 +534,24 @@ export default function SuperAdminPortal() {
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
                       Initial Password <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none font-mono"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

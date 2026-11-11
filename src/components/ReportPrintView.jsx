@@ -202,18 +202,18 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
                   />
                 ) : (
                   <div className="w-14 h-14 rounded-xl bg-sky-900 text-white flex items-center justify-center font-bold text-2xl shadow">
-                    AP
+                    {settings.clinic_name ? settings.clinic_name.substring(0, 2).toUpperCase() : 'PL'}
                   </div>
                 )}
                 <div>
                   <h1 className="text-2xl font-black text-sky-950 tracking-tight leading-tight uppercase font-sans">
-                    {settings.clinic_name || 'ACHARYA PATHOLOGY'}
+                    {settings.clinic_name || 'PATHOLOGY & DIAGNOSTIC LABORATORY'}
                   </h1>
                   <p className="text-xs font-bold text-sky-700 tracking-wide mt-0.5 uppercase">
-                    {settings.tagline || 'Diagnostic & Imaging Centre'}
+                    {settings.tagline || 'Diagnostic & Clinical Centre'}
                   </p>
                   <p className="text-[11px] text-slate-600 font-medium mt-1">
-                    {settings.address || 'Silwani, Dist. Raisen, Madhya Pradesh - 464886'}
+                    {settings.address || 'Diagnostic Centre Address / City'}
                   </p>
                   <p className="text-[11px] text-slate-600 font-medium">
                     Phone: <span className="font-bold">{settings.phone || '+91 98765 43210'}</span>
@@ -269,7 +269,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Centre</span>
-              <span className="font-medium">Acharya Pathology, Silwani</span>
+              <span className="font-medium">{settings.clinic_name || 'Diagnostic Laboratory Centre'}</span>
             </div>
           </div>
         </div>
@@ -463,8 +463,8 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
         <footer className="report-footer-section avoid-break-inside pt-5 pb-2 mt-6 border-t-2 border-slate-300 text-xs">
           <div className="flex items-end justify-between gap-4">
             <div className="text-[10px] text-slate-500 space-y-0.5 max-w-[65%]">
-              <p className="font-bold text-slate-800 text-[11px] leading-tight">Acharya Pathology & Diagnostic Centre</p>
-              <p className="text-slate-600">Silwani, Dist. Raisen, Madhya Pradesh • Emergency & Routine Diagnostic Services</p>
+              <p className="font-bold text-slate-800 text-[11px] leading-tight">{settings.clinic_name || 'Pathology & Diagnostic Centre'}</p>
+              <p className="text-slate-600">{settings.address || 'Emergency & Routine Diagnostic Services'}</p>
               <p className="italic text-slate-500">* Biological reference ranges are clinical guidelines for medical interpretation.</p>
               <p className="font-mono text-[9px] text-slate-400">Generated on: {report.registration_date} • Electronic Diagnostic Record</p>
             </div>
@@ -482,7 +482,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
               ) : (
                 <div className="w-40 border-b border-dashed border-slate-500 h-8 mb-2" />
               )}
-              <div className="font-bold text-slate-900 text-xs tracking-tight">{settings.signatory_name || 'Dr. S. K. Acharya'}</div>
+              <div className="font-bold text-slate-900 text-xs tracking-tight">{settings.signatory_name || 'Consultant Pathologist'}</div>
               <div className="text-[11px] text-slate-700 font-medium">{settings.signatory_degree || 'M.B.B.S., M.D. (Pathology)'}</div>
               <div className="text-[10px] text-sky-900 font-bold uppercase tracking-wider">{settings.signatory_designation || 'Consultant Pathologist'}</div>
             </div>

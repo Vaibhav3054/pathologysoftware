@@ -1,6 +1,6 @@
 -- =========================================================================
 -- MIGRATION 005: Supabase Storage & Tenant Provisioning Workflows
--- Supports: Normal Customer Paid, Super Admin Complimentary & Test/Demo Labs
+-- Supports: 3-Day Free Trial, Customer Paid, Super Admin Complimentary & Test/Demo Labs
 -- =========================================================================
 
 -- 1. Create Supabase Storage Bucket for Lab Assets (Logos & Signatures)
@@ -57,7 +57,7 @@ CREATE POLICY "Allow user profile creation"
   WITH CHECK (true);
 
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
--- Handles all 3 paths: Normal Customer, Super Admin Complimentary, and Test/Demo
+-- Handles all paths: 3-Day Free Trial, Normal Customer, Super Admin Complimentary, and Test/Demo
 DROP FUNCTION IF EXISTS public.provision_new_tenant CASCADE;
 CREATE OR REPLACE FUNCTION public.provision_new_tenant(
   p_name TEXT,
@@ -65,9 +65,9 @@ CREATE OR REPLACE FUNCTION public.provision_new_tenant(
   p_phone TEXT,
   p_email TEXT,
   p_address TEXT,
-  p_plan_type TEXT DEFAULT 'monthly',
-  p_subscription_source TEXT DEFAULT 'payment',
-  p_duration_days INT DEFAULT 30,
+  p_plan_type TEXT DEFAULT 'trial',
+  p_subscription_source TEXT DEFAULT 'trial',
+  p_duration_days INT DEFAULT 3,
   p_is_unlimited BOOLEAN DEFAULT false,
   p_is_test_lab BOOLEAN DEFAULT false,
   p_notes TEXT DEFAULT '',
@@ -86,9 +86,20 @@ DECLARE
   v_expires_at TIMESTAMPTZ;
   v_billing_amount NUMERIC(10, 2) := 0.00;
   v_prefix TEXT;
+  v_plan TEXT := p_plan_type;
+  v_source TEXT := p_subscription_source;
+  v_notes TEXT := p_notes;
 BEGIN
-  -- Compute expiration date
-  IF p_is_unlimited THEN
+  -- 3-Day Automatic Free Trial handling
+  IF v_source = 'trial' OR v_plan = 'trial' THEN
+    v_plan := 'trial';
+    v_source := 'trial';
+    v_billing_amount := 0.00;
+    v_expires_at := v_starts_at + INTERVAL '3 days';
+    IF v_notes = '' THEN
+      v_notes := '3-Day Automatic Free Trial';
+    END IF;
+  ELSIF p_is_unlimited THEN
     v_expires_at := NULL;
   ELSIF p_duration_days IS NOT NULL AND p_duration_days > 0 THEN
     v_expires_at := v_starts_at + (p_duration_days || ' days')::INTERVAL;
@@ -120,10 +131,10 @@ BEGIN
   PERFORM public.seed_tenant_catalog(v_tenant_id);
 
   -- 4. Create Subscription Record
-  -- If complimentary or test_demo, billing_amount is strictly 0.00 (no fake payment)
-  IF p_subscription_source IN ('complimentary', 'test_demo', 'super_admin') THEN
+  -- If trial, complimentary, or test_demo, billing_amount is strictly 0.00
+  IF v_source IN ('trial', 'complimentary', 'test_demo', 'super_admin') THEN
     v_billing_amount := 0.00;
-  ELSIF p_plan_type = 'yearly' THEN
+  ELSIF v_plan = 'yearly' THEN
     v_billing_amount := 9999.00;
   ELSE
     v_billing_amount := 999.00;
@@ -134,9 +145,9 @@ BEGIN
     billing_amount, starts_at, expires_at, is_unlimited,
     granted_by_admin_id, notes
   ) VALUES (
-    v_tenant_id, p_plan_type, p_subscription_source, 'active',
+    v_tenant_id, v_plan, v_source, 'active',
     v_billing_amount, v_starts_at, v_expires_at, p_is_unlimited,
-    p_admin_user_id, p_notes
+    p_admin_user_id, v_notes
   );
 
   -- 5. Create Lab Owner Profile if owner_id provided
@@ -161,12 +172,63 @@ BEGIN
     'tenant_id', v_tenant_id,
     'name', p_name,
     'slug', p_slug,
-    'plan_type', p_plan_type,
-    'subscription_source', p_subscription_source,
+    'plan_type', v_plan,
+    'subscription_source', v_source,
     'starts_at', v_starts_at,
     'expires_at', v_expires_at,
     'is_unlimited', p_is_unlimited,
     'is_test_lab', p_is_test_lab
+  );
+END;
+$$;
+
+-- 4. Function to activate or renew paid subscription (Monthly / Yearly)
+DROP FUNCTION IF EXISTS public.activate_paid_subscription CASCADE;
+CREATE OR REPLACE FUNCTION public.activate_paid_subscription(
+  target_tenant_id UUID,
+  p_plan_type TEXT DEFAULT 'monthly',
+  p_payment_notes TEXT DEFAULT 'Online Subscription Activation'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_starts_at TIMESTAMPTZ := now();
+  v_expires_at TIMESTAMPTZ;
+  v_billing_amount NUMERIC(10, 2);
+  v_sub_id UUID;
+BEGIN
+  IF p_plan_type = 'yearly' THEN
+    v_billing_amount := 9999.00;
+    v_expires_at := v_starts_at + INTERVAL '365 days';
+  ELSE
+    v_billing_amount := 999.00;
+    v_expires_at := v_starts_at + INTERVAL '30 days';
+  END IF;
+
+  INSERT INTO public.tenant_subscriptions (
+    tenant_id, plan_type, subscription_source, status,
+    billing_amount, starts_at, expires_at, is_unlimited,
+    notes
+  ) VALUES (
+    target_tenant_id, p_plan_type, 'payment', 'active',
+    v_billing_amount, v_starts_at, v_expires_at, false,
+    p_payment_notes
+  )
+  RETURNING id INTO v_sub_id;
+
+  -- Ensure tenant is active
+  UPDATE public.tenants SET status = 'active', updated_at = now() WHERE id = target_tenant_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'subscription_id', v_sub_id,
+    'plan_type', p_plan_type,
+    'billing_amount', v_billing_amount,
+    'starts_at', v_starts_at,
+    'expires_at', v_expires_at
   );
 END;
 $$;

@@ -18,23 +18,26 @@ import {
   User,
   Calendar,
   Gift,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 
 export default function SettingsView() {
-  const { tenant, profile, subscription, isLabOwner, isSuperAdmin } = useAuth();
+  const { tenant, profile, subscription, isLabOwner, isSuperAdmin, isTrial, getTrialDaysRemaining, upgradeSubscription } = useAuth();
 
   const [settings, setSettings] = useState({
-    clinic_name: 'ACHARYA PATHOLOGY',
+    clinic_name: 'DIAGNOSTIC & CLINICAL LABORATORY',
     tagline: 'Diagnostic, Clinical Laboratory & X-Ray Centre',
-    address: 'Silwani, Dist. Raisen, Madhya Pradesh - 464886',
+    address: 'Main Road, City, State - PIN',
     phone: '+91 98765 43210',
-    email: 'contact@acharyapathology.com',
-    reg_no: 'REG/MP/SIL/2026/042',
-    signatory_name: 'Dr. S. K. Acharya',
+    email: 'contact@pathologylab.com',
+    reg_no: 'REG/LAB/2026/001',
+    signatory_name: 'Consultant Pathologist',
     signatory_degree: 'M.B.B.S., M.D. (Pathology)',
     signatory_designation: 'Consultant Pathologist',
     signatory_signature_path: '',
@@ -43,7 +46,7 @@ export default function SettingsView() {
     logo_url: '',
     letterhead_mode: 'digital',
     letterhead_top_margin: 35,
-    report_number_prefix: 'AP-',
+    report_number_prefix: 'LAB-',
     next_report_number: 1
   });
 
@@ -60,6 +63,7 @@ export default function SettingsView() {
   const [staffName, setStaffName] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
   const [staffRole, setStaffRole] = useState('receptionist');
   const [staffError, setStaffError] = useState('');
   const [staffSuccess, setStaffSuccess] = useState('');
@@ -333,7 +337,7 @@ export default function SettingsView() {
                   type="email"
                   value={settings.email}
                   onChange={(e) => handleChange('email', e.target.value)}
-                  placeholder="lab@acharyapathology.com"
+                  placeholder="lab@yourdomain.com"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
                 />
               </div>
@@ -410,7 +414,7 @@ export default function SettingsView() {
                   type="text"
                   value={settings.signatory_name}
                   onChange={(e) => handleChange('signatory_name', e.target.value)}
-                  placeholder="e.g. Dr. S. K. Acharya"
+                  placeholder="e.g. Dr. Full Name"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
                 />
               </div>
@@ -695,7 +699,7 @@ export default function SettingsView() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Lab Slug:</span>
-                  <span className="font-mono text-[11px] text-slate-700">{tenant?.slug || 'acharya'}</span>
+                  <span className="font-mono text-[11px] text-slate-700">{tenant?.slug || 'lab'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Demo / Test Lab:</span>
@@ -788,14 +792,23 @@ export default function SettingsView() {
                 <label className="block font-semibold text-slate-600 mb-1">Login Password</label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showStaffPassword ? 'text' : 'password'}
                     value={staffPassword}
                     onChange={(e) => setStaffPassword(e.target.value)}
                     placeholder="Min 6 characters"
                     required
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
+                    className="w-full pl-8 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
                   />
                   <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffPassword(!showStaffPassword)}
+                    tabIndex={-1}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer"
+                    title={showStaffPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showStaffPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               </div>
 

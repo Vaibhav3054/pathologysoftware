@@ -254,7 +254,7 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
         <div className="space-y-1">
           <span className="text-slate-400 uppercase font-semibold text-[10px] tracking-wider block">Reference Doctor</span>
           <div className="font-semibold text-slate-800">{report.doctor_name || 'Self / Direct'}</div>
-          <div className="text-slate-400">Acharya Diagnostic Centre</div>
+          <div className="text-slate-400">Diagnostic Laboratory</div>
         </div>
 
         <div className="space-y-1">

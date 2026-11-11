@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ currentView, setCurrentView }) {
-  const { profile, tenant, tenantSettings, signOut, isSuperAdmin } = useAuth();
+  const { profile, tenant, tenantSettings, signOut, isSuperAdmin, isTrial, getTrialDaysRemaining } = useAuth();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -37,7 +37,7 @@ export default function Sidebar({ currentView, setCurrentView }) {
     });
   }
 
-  const labName = tenantSettings?.clinic_name || tenant?.name || 'ACHARYA PATHOLOGY';
+  const labName = tenantSettings?.clinic_name || tenant?.name || 'DIAGNOSTIC CENTRE';
   const labLogo = tenantSettings?.logo_url;
 
   return (
@@ -67,6 +67,11 @@ export default function Sidebar({ currentView, setCurrentView }) {
                 </span>
                 {tenant?.is_test_lab && (
                   <span className="bg-indigo-500/30 text-indigo-300 text-[9px] px-1 rounded font-bold">Demo</span>
+                )}
+                {isTrial && (
+                  <span className="bg-emerald-500/30 text-emerald-300 text-[9px] px-1 rounded font-bold">
+                    {getTrialDaysRemaining()}d Trial
+                  </span>
                 )}
               </div>
             </div>

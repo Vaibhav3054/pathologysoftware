@@ -14,7 +14,7 @@ import SuperAdminPortal from './components/SuperAdminPortal';
 import LoginView from './components/LoginView';
 import RegisterLabView from './components/RegisterLabView';
 import { useAuth } from './context/AuthContext';
-import { Activity, AlertTriangle, ShieldCheck, LogOut, RefreshCw } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, LogOut, RefreshCw, CheckCircle2, ArrowRight, CreditCard } from 'lucide-react';
 
 export default function App() {
   const { 
@@ -27,13 +27,18 @@ export default function App() {
     isSuperAdmin, 
     isSubscriptionActive, 
     signOut,
-    refreshSession
+    refreshSession,
+    isTrial,
+    upgradeSubscription
   } = useAuth();
 
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeReportId, setActiveReportId] = useState(null);
   const [prefilledPatient, setPrefilledPatient] = useState(null);
+  const [upgradePlan, setUpgradePlan] = useState('monthly');
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState('');
 
   // Set default landing view for Super Admin
   useEffect(() => {
@@ -66,60 +71,140 @@ export default function App() {
     return <LoginView onSwitchToRegister={() => setAuthMode('register')} />;
   }
 
-  // Subscription Expiry / Suspended Guard (Super Admin can always bypass)
+  // Subscription Expiry / Trial Ended Guard (Super Admin can always bypass)
   const subscriptionActive = isSubscriptionActive();
   if (!subscriptionActive && !isSuperAdmin) {
+    const isTrialExpired = isTrial || subscription?.plan_type === 'trial' || subscription?.subscription_source === 'trial';
     const expiresDate = subscription?.expires_at 
       ? new Date(subscription.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
       : 'Expired';
 
+    const handleActivateSubscription = async () => {
+      try {
+        setUpgrading(true);
+        setUpgradeError('');
+        await upgradeSubscription(upgradePlan);
+      } catch (err) {
+        console.error('Subscription activation error:', err);
+        setUpgradeError(err.message || 'Failed to activate subscription. Please try again.');
+      } finally {
+        setUpgrading(false);
+      }
+    };
+
     return (
-      <div className="min-h-screen w-screen flex items-center justify-center bg-slate-100 p-4 font-sans">
-        <div className="max-w-lg w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-          <div className="bg-amber-500/10 border-b border-amber-200/80 p-6 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mx-auto mb-3">
-              <AlertTriangle className="w-8 h-8 text-amber-600" />
+      <div className="min-h-screen w-screen flex items-center justify-center bg-slate-100 p-4 font-sans py-10">
+        <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-6 text-white text-center">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center mx-auto mb-2">
+              <AlertTriangle className="w-6 h-6 text-amber-400" />
             </div>
-            <h2 className="text-lg font-bold text-slate-800">Laboratory Subscription Expired</h2>
-            <p className="text-xs text-slate-600 mt-1">Access to clinical tools and reporting has been paused</p>
+            <h2 className="text-xl font-bold tracking-tight">
+              {isTrialExpired ? 'Your 3-Day Free Trial Has Ended' : 'Laboratory Subscription Paused'}
+            </h2>
+            <p className="text-xs text-sky-200 mt-0.5">
+              Choose a subscription plan to continue full access for {tenant?.name || 'Your Laboratory'}
+            </p>
           </div>
 
-          <div className="p-6 space-y-4 text-xs text-slate-600">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Laboratory:</span>
-                <span className="font-bold text-slate-800">{tenant?.name || 'Your Lab'}</span>
+          <div className="p-8 space-y-6">
+            {upgradeError && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                {upgradeError}
               </div>
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Subscription Status:</span>
-                <span className="font-bold text-rose-600 uppercase">{subscription?.status || 'Expired'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Expiry Date:</span>
-                <span className="font-mono font-bold text-slate-700">{expiresDate}</span>
+            )}
+
+            {/* Plan Selector */}
+            <div className="space-y-3">
+              <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Select Your Subscription Plan
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className={`p-4 rounded-2xl border-2 cursor-pointer transition select-none ${
+                  upgradePlan === 'monthly' ? 'bg-sky-50 border-sky-600 ring-2 ring-sky-500/20' : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="upgradePlan"
+                    value="monthly"
+                    checked={upgradePlan === 'monthly'}
+                    onChange={() => setUpgradePlan('monthly')}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-sm">Monthly Plan</span>
+                    <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center border-sky-600">
+                      {upgradePlan === 'monthly' && <span className="w-2 h-2 rounded-full bg-sky-600" />}
+                    </span>
+                  </div>
+                  <div className="text-xl font-extrabold text-sky-950 font-mono mt-2">₹999 <span className="text-xs font-normal text-slate-500">/ month</span></div>
+                  <ul className="text-[11px] text-slate-600 mt-3 space-y-1">
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Full 30-Day Access</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Unlimited Patient Reports</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Cloud Backup Included</li>
+                  </ul>
+                </label>
+
+                <label className={`p-4 rounded-2xl border-2 cursor-pointer transition select-none ${
+                  upgradePlan === 'yearly' ? 'bg-sky-50 border-sky-600 ring-2 ring-sky-500/20' : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="upgradePlan"
+                    value="yearly"
+                    checked={upgradePlan === 'yearly'}
+                    onChange={() => setUpgradePlan('yearly')}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900 text-sm">Annual Plan</span>
+                      <span className="ml-2 text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">Save 16%</span>
+                    </div>
+                    <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center border-sky-600">
+                      {upgradePlan === 'yearly' && <span className="w-2 h-2 rounded-full bg-sky-600" />}
+                    </span>
+                  </div>
+                  <div className="text-xl font-extrabold text-sky-950 font-mono mt-2">₹9,999 <span className="text-xs font-normal text-slate-500">/ year</span></div>
+                  <ul className="text-[11px] text-slate-600 mt-3 space-y-1">
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Full 365-Day Access</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Priority Support</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> 2 Months Free Value</li>
+                  </ul>
+                </label>
               </div>
             </div>
 
-            <p className="text-center text-slate-500 leading-relaxed">
-              To renew your subscription or extend your complimentary access, please contact your Platform Administrator.
-            </p>
-
-            <div className="pt-2 flex flex-col gap-2">
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
               <button
-                onClick={refreshSession}
-                className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                onClick={handleActivateSubscription}
+                disabled={upgrading}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/30 transition active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Check for Updated Subscription</span>
+                <CreditCard className="w-4 h-4" />
+                <span>{upgrading ? 'Activating Subscription...' : `Activate ${upgradePlan === 'yearly' ? 'Annual (₹9,999)' : 'Monthly (₹999)'} Plan`}</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
 
-              <button
-                onClick={signOut}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={refreshSession}
+                  className="inline-flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-700 font-semibold cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Check for Updated Access</span>
+                </button>
+
+                <button
+                  onClick={signOut}
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
