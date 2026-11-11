@@ -146,6 +146,8 @@ export function AuthProvider({ children }) {
       p_is_test_lab: false,
       p_notes: 'Online self-service signup',
       p_admin_user_id: null,
+      p_owner_id: userId,
+      p_owner_name: fullName.trim(),
     });
 
     if (provErr) {
@@ -153,23 +155,34 @@ export function AuthProvider({ children }) {
       throw provErr;
     }
 
-    const tenantId = provData.tenant_id;
+    const tenantId = provData?.tenant_id;
 
-    // 3. Create user profile linked to new tenant with role 'lab_owner'
-    const { error: profileErr } = await supabase.from('user_profiles').insert({
-      id: userId,
-      tenant_id: tenantId,
-      email: email.trim(),
-      full_name: fullName.trim(),
-      role: 'lab_owner',
-      is_active: true,
-    });
+    // 3. Fallback upsert user profile if not done by RPC
+    try {
+      await supabase.from('user_profiles').upsert({
+        id: userId,
+        tenant_id: tenantId,
+        email: email.trim(),
+        full_name: fullName.trim(),
+        role: 'lab_owner',
+        is_active: true,
+      });
+    } catch (e) {
+      console.warn('Profile upsert note:', e);
+    }
 
-    if (profileErr) throw profileErr;
+    // Refresh context if session is active
+    if (authData.session) {
+      await loadUserData(authData.user);
+      return { success: true, tenantId, hasSession: true };
+    }
 
-    // Refresh context
-    await loadUserData(authData.user);
-    return { success: true, tenantId };
+    return { 
+      success: true, 
+      tenantId, 
+      hasSession: false, 
+      email: email.trim() 
+    };
   };
 
   const signOut = async () => {

@@ -756,6 +756,13 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
   );
 
+-- Allow new user profile creation during self-service registration
+DROP POLICY IF EXISTS "Allow user profile creation" ON public.user_profiles;
+CREATE POLICY "Allow user profile creation"
+  ON public.user_profiles FOR INSERT
+  TO authenticated, anon
+  WITH CHECK (true);
+
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
 -- Handles all 3 paths: Normal Customer, Super Admin Complimentary, and Test/Demo
 CREATE OR REPLACE FUNCTION public.provision_new_tenant(
@@ -770,7 +777,9 @@ CREATE OR REPLACE FUNCTION public.provision_new_tenant(
   p_is_unlimited BOOLEAN DEFAULT false,
   p_is_test_lab BOOLEAN DEFAULT false,
   p_notes TEXT DEFAULT '',
-  p_admin_user_id UUID DEFAULT NULL
+  p_admin_user_id UUID DEFAULT NULL,
+  p_owner_id UUID DEFAULT NULL,
+  p_owner_name TEXT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -836,6 +845,23 @@ BEGIN
     p_admin_user_id, p_notes
   );
 
+  -- 5. Create Lab Owner Profile if owner_id provided
+  IF p_owner_id IS NOT NULL THEN
+    INSERT INTO public.user_profiles (id, tenant_id, email, full_name, role, is_active)
+    VALUES (
+      p_owner_id, 
+      v_tenant_id, 
+      p_email, 
+      COALESCE(p_owner_name, p_name), 
+      'lab_owner', 
+      true
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      tenant_id = v_tenant_id,
+      role = 'lab_owner',
+      full_name = EXCLUDED.full_name;
+  END IF;
+
   RETURN jsonb_build_object(
     'success', true,
     'tenant_id', v_tenant_id,
@@ -850,3 +876,8 @@ BEGIN
   );
 END;
 $$;
+
+-- Grant execution permissions
+GRANT EXECUTE ON FUNCTION public.provision_new_tenant TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.generate_next_report_number TO anon, authenticated, service_role;

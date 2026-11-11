@@ -13,10 +13,12 @@ export default function RegisterLabView({ onSwitchToLogin }) {
   const [planType, setPlanType] = useState('monthly');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successInfo, setSuccessInfo] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessInfo('');
 
     if (!labName.trim() || !fullName.trim() || !email.trim() || !password) {
       setErrorMsg('Please fill in all required fields.');
@@ -30,7 +32,7 @@ export default function RegisterLabView({ onSwitchToLogin }) {
 
     try {
       setLoading(true);
-      await registerLab({
+      const res = await registerLab({
         labName: labName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
@@ -39,10 +41,29 @@ export default function RegisterLabView({ onSwitchToLogin }) {
         labAddress: address.trim(),
         planType,
       });
-      // Context automatically sets tenant & session, routing into main app!
+
+      if (res && res.hasSession === false) {
+        setSuccessInfo(
+          `Laboratory created! A confirmation email was sent to ${email.trim()}. ` +
+          `Tip: To bypass email verification and log in instantly, disable "Confirm email" in your Supabase Auth dashboard.`
+        );
+      }
     } catch (err) {
       console.error('Registration error:', err);
-      setErrorMsg(err.message || 'Failed to register laboratory.');
+      const rawMsg = err.message || '';
+
+      if (rawMsg.toLowerCase().includes('failed to fetch')) {
+        setErrorMsg(
+          'Network connection blocked (Failed to fetch). ' +
+          'Please ensure an ad blocker (e.g. Brave Shields, uBlock Origin) is not blocking requests to supabase.co, and that your internet connection is active.'
+        );
+      } else if (rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('over_email_send_rate_limit')) {
+        setErrorMsg(
+          'Supabase email rate limit reached. Fix: Go to your Supabase Dashboard -> Authentication -> Providers -> Email -> toggle OFF "Confirm email", then click Save and try again.'
+        );
+      } else {
+        setErrorMsg(rawMsg || 'Failed to register laboratory.');
+      }
     } finally {
       setLoading(false);
     }
@@ -66,6 +87,13 @@ export default function RegisterLabView({ onSwitchToLogin }) {
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successInfo && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successInfo}</span>
             </div>
           )}
 
