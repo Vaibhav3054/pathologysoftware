@@ -90,3 +90,39 @@ AS $$
     false
   );
 $$;
+
+CREATE OR REPLACE FUNCTION public.has_active_subscription(p_tenant_id UUID DEFAULT public.current_tenant_id())
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    public.is_super_admin()
+    OR (
+      p_tenant_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM public.tenants t
+        WHERE t.id = p_tenant_id
+          AND t.status = 'active'
+          AND EXISTS (
+            SELECT 1
+            FROM (
+              SELECT s.status, s.is_unlimited, s.expires_at
+              FROM public.tenant_subscriptions s
+              WHERE s.tenant_id = t.id
+              ORDER BY s.created_at DESC
+              LIMIT 1
+            ) latest_sub
+            WHERE latest_sub.status = 'active'
+              AND (
+                latest_sub.is_unlimited = true
+                OR latest_sub.expires_at IS NULL
+                OR latest_sub.expires_at > now()
+              )
+          )
+      )
+    );
+$$;

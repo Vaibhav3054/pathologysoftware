@@ -173,12 +173,21 @@ export function AuthProvider({ children }) {
   // Upgrade or Activate Paid Subscription (Monthly or Yearly)
   const upgradeSubscription = async (planType = 'monthly') => {
     if (!tenant?.id) throw new Error('No active laboratory found.');
-    await api.activatePaidSubscription({
-      tenantId: tenant.id,
-      planType,
-      notes: `Online upgrade to ${planType} plan`,
-    });
-    await refreshSession();
+    try {
+      await api.activatePaidSubscription({
+        tenantId: tenant.id,
+        planType,
+        notes: `Online upgrade to ${planType} plan`,
+      });
+      await refreshSession();
+    } catch (err) {
+      if (err?.code === '42501' || /permission denied|unauthorized/i.test(err?.message || '')) {
+        throw new Error(
+          'Self-serve online payment checkout is not enabled yet. Please contact the platform administrator or complete Razorpay/Stripe setup.'
+        );
+      }
+      throw err;
+    }
   };
 
   const isTrial = Boolean(subscription?.plan_type === 'trial' || subscription?.subscription_source === 'trial');
@@ -214,9 +223,9 @@ export function AuthProvider({ children }) {
   // Check if tenant's subscription is currently valid
   const isSubscriptionActive = () => {
     if (isSuperAdmin) return true;
-    if (!subscription) return true; // Grace or default
+    if (!tenant || tenant.status !== 'active') return false;
+    if (!subscription || subscription.status !== 'active') return false;
     if (subscription.is_unlimited) return true;
-    if (subscription.status !== 'active') return false;
     if (subscription.expires_at) {
       return new Date(subscription.expires_at) > new Date();
     }

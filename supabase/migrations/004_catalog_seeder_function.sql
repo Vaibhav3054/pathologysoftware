@@ -16,6 +16,15 @@ DECLARE
   v_next INT;
   v_result TEXT;
 BEGIN
+  IF current_user NOT IN ('postgres', 'supabase_admin', 'service_role') AND NOT public.is_super_admin() THEN
+    IF target_tenant_id IS DISTINCT FROM public.current_tenant_id() THEN
+      RAISE EXCEPTION 'Unauthorized tenant report number access';
+    END IF;
+    IF NOT public.has_active_subscription(target_tenant_id) THEN
+      RAISE EXCEPTION 'Subscription expired or tenant suspended';
+    END IF;
+  END IF;
+
   -- Lock settings row for target tenant to avoid race conditions
   SELECT report_number_prefix, report_number_digits, next_report_number
   INTO v_prefix, v_digits, v_next

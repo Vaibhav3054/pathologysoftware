@@ -28,7 +28,8 @@ CREATE POLICY "Tenant staff can upload assets to their own folder"
   TO authenticated
   WITH CHECK (
     bucket_id = 'lab-assets' AND
-    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
+    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.has_active_subscription(public.current_tenant_id())
   );
 
 DROP POLICY IF EXISTS "Tenant staff can update assets in their own folder" ON storage.objects;
@@ -37,7 +38,8 @@ CREATE POLICY "Tenant staff can update assets in their own folder"
   TO authenticated
   USING (
     bucket_id = 'lab-assets' AND
-    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
+    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.has_active_subscription(public.current_tenant_id())
   );
 
 DROP POLICY IF EXISTS "Tenant staff can delete assets in their own folder" ON storage.objects;
@@ -46,7 +48,8 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
   TO authenticated
   USING (
     bucket_id = 'lab-assets' AND
-    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
+    (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.has_active_subscription(public.current_tenant_id())
   );
 
 -- Drop any legacy permissive profile creation policy (profiles are created safely via RPC/admins)
@@ -84,10 +87,27 @@ DECLARE
   v_prefix TEXT;
   v_plan TEXT := p_plan_type;
   v_source TEXT := p_subscription_source;
+  v_is_unlimited BOOLEAN := p_is_unlimited;
+  v_is_test_lab BOOLEAN := p_is_test_lab;
+  v_admin_user_id UUID := p_admin_user_id;
   v_notes TEXT := p_notes;
+  v_is_privileged BOOLEAN := (current_user IN ('postgres', 'supabase_admin', 'service_role') OR public.is_super_admin());
 BEGIN
+  IF NOT v_is_privileged THEN
+    IF p_owner_id IS NULL THEN
+      RAISE EXCEPTION 'Owner user ID is required for self-registration';
+    END IF;
+
+    v_plan := 'trial';
+    v_source := 'trial';
+    v_is_unlimited := false;
+    v_is_test_lab := false;
+    v_admin_user_id := NULL;
+    v_notes := '3-Day Automatic Free Trial';
+  END IF;
+
   IF p_owner_id IS NOT NULL THEN
-    IF NOT public.is_super_admin() AND auth.uid() IS NOT NULL AND p_owner_id <> auth.uid() THEN
+    IF NOT v_is_privileged AND auth.uid() IS NOT NULL AND p_owner_id <> auth.uid() THEN
       RAISE EXCEPTION 'Unauthorized owner assignment';
     END IF;
 
@@ -109,10 +129,11 @@ BEGIN
     v_source := 'trial';
     v_billing_amount := 0.00;
     v_expires_at := v_starts_at + INTERVAL '3 days';
-    IF v_notes = '' THEN
+    v_is_unlimited := false;
+    IF COALESCE(v_notes, '') = '' THEN
       v_notes := '3-Day Automatic Free Trial';
     END IF;
-  ELSIF p_is_unlimited THEN
+  ELSIF v_is_unlimited THEN
     v_expires_at := NULL;
   ELSIF p_duration_days IS NOT NULL AND p_duration_days > 0 THEN
     v_expires_at := v_starts_at + (p_duration_days || ' days')::INTERVAL;
@@ -128,7 +149,7 @@ BEGIN
 
   -- 1. Create Tenant Record
   INSERT INTO public.tenants (name, slug, phone, email, address, status, is_test_lab)
-  VALUES (p_name, LOWER(p_slug), p_phone, p_email, p_address, 'active', p_is_test_lab)
+  VALUES (p_name, LOWER(p_slug), p_phone, p_email, p_address, 'active', v_is_test_lab)
   RETURNING id INTO v_tenant_id;
 
   -- 2. Create Initial Tenant Settings
@@ -159,8 +180,8 @@ BEGIN
     granted_by_admin_id, notes
   ) VALUES (
     v_tenant_id, v_plan, v_source, 'active',
-    v_billing_amount, v_starts_at, v_expires_at, p_is_unlimited,
-    p_admin_user_id, v_notes
+    v_billing_amount, v_starts_at, v_expires_at, v_is_unlimited,
+    v_admin_user_id, v_notes
   );
 
   -- 5. Create Lab Owner Profile if owner_id provided (never updates/hijacks existing profile)
@@ -185,8 +206,8 @@ BEGIN
     'subscription_source', v_source,
     'starts_at', v_starts_at,
     'expires_at', v_expires_at,
-    'is_unlimited', p_is_unlimited,
-    'is_test_lab', p_is_test_lab
+    'is_unlimited', v_is_unlimited,
+    'is_test_lab', v_is_test_lab
   );
 END;
 $$;
@@ -209,6 +230,10 @@ DECLARE
   v_billing_amount NUMERIC(10, 2);
   v_sub_id UUID;
 BEGIN
+  IF current_user NOT IN ('postgres', 'supabase_admin', 'service_role') AND NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: paid subscription activation requires verified server payment';
+  END IF;
+
   IF p_plan_type = 'yearly' THEN
     v_billing_amount := 9999.00;
     v_expires_at := v_starts_at + INTERVAL '365 days';
@@ -242,5 +267,20 @@ BEGIN
 END;
 $$;
 
--- Grant execution permissions on all public functions
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+-- Least-privilege execution permissions (no blanket GRANT ALL TO anon)
+REVOKE ALL ON FUNCTION public.activate_paid_subscription(UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.activate_paid_subscription(UUID, TEXT, TEXT) TO service_role;
+
+REVOKE ALL ON FUNCTION public.generate_next_report_number(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_next_report_number(UUID) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.seed_tenant_catalog(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog(UUID) TO service_role;
+
+REVOKE ALL ON FUNCTION public.has_active_subscription(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_active_subscription(UUID) TO authenticated, service_role;
+
+GRANT EXECUTE ON FUNCTION public.current_tenant_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.provision_new_tenant(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, BOOLEAN, BOOLEAN, TEXT, UUID, UUID, TEXT) TO anon, authenticated, service_role;
