@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { setApiTenantId } from '../services/api';
+import {
+  hasPermission as checkPermission,
+  canAccessView as checkViewAccess,
+} from '../config/permissions';
 
 const AuthContext = createContext(null);
 
@@ -11,6 +15,12 @@ export function AuthProvider({ children }) {
   const [tenantSettings, setTenantSettings] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery');
+    }
+    return false;
+  });
 
   useEffect(() => {
     // Check initial active session
@@ -23,9 +33,12 @@ export function AuthProvider({ children }) {
       }
     });
 
-    // Listen for auth state changes (login, logout, refresh)
+    // Listen for auth state changes (login, logout, refresh, password recovery)
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordRecovery(true);
+        }
         if (session?.user) {
           setUser(session.user);
           await loadUserData(session.user);
@@ -36,6 +49,7 @@ export function AuthProvider({ children }) {
           setTenantSettings(null);
           setSubscription(null);
           setApiTenantId(null);
+          setPasswordRecovery(false);
           setLoading(false);
         }
       }
@@ -199,6 +213,25 @@ export function AuthProvider({ children }) {
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
+  // Send password reset email
+  const requestPasswordReset = async (email) => {
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    if (error) throw error;
+    return true;
+  };
+
+  // Set new password (during recovery link flow OR logged-in Change Password)
+  const updateOwnPassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setPasswordRecovery(false);
+    if (typeof window !== 'undefined' && (window.location.hash.includes('recovery') || window.location.search.includes('recovery'))) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    return true;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -207,6 +240,7 @@ export function AuthProvider({ children }) {
     setTenantSettings(null);
     setSubscription(null);
     setApiTenantId(null);
+    setPasswordRecovery(false);
   };
 
   const refreshSession = async () => {
@@ -219,6 +253,9 @@ export function AuthProvider({ children }) {
   const isLabOwner = profile?.role === 'lab_owner';
   const isReceptionist = profile?.role === 'receptionist';
   const isTechnician = profile?.role === 'technician';
+  const isAccountActive = profile ? profile.is_active !== false : true;
+  const hasPermission = (permission) => checkPermission(profile?.role, permission);
+  const canAccessView = (viewId) => checkViewAccess(profile?.role, viewId);
 
   // Check if tenant's subscription is currently valid
   const isSubscriptionActive = () => {
@@ -241,14 +278,20 @@ export function AuthProvider({ children }) {
         tenantSettings,
         subscription,
         loading,
+        passwordRecovery,
         signIn,
         registerLab,
+        requestPasswordReset,
+        updateOwnPassword,
         signOut,
         refreshSession,
         isSuperAdmin,
         isLabOwner,
         isReceptionist,
         isTechnician,
+        isAccountActive,
+        hasPermission,
+        canAccessView,
         isSubscriptionActive,
         isTrial,
         getTrialDaysRemaining,

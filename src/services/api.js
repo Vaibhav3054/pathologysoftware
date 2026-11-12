@@ -847,4 +847,51 @@ export const api = {
     if (error) throw error;
     return data || [];
   },
+
+  async manageStaffAccount({ action, targetUserId, newPassword, fullName, email, role, isActive }) {
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !sessionData?.session?.access_token) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
+    const res = await fetch('/.netlify/functions/manage-staff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({
+        action,
+        targetUserId,
+        newPassword,
+        fullName,
+        email,
+        role,
+        isActive,
+      }),
+    });
+
+    let payload = {};
+    try {
+      payload = await res.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!res.ok) {
+      // Fallback for toggle_active if SUPABASE_SERVICE_ROLE_KEY is not configured yet
+      if (payload?.code === 'MISSING_SERVICE_ROLE' && action === 'toggle_active' && typeof isActive === 'boolean') {
+        const { error: updateErr } = await supabase
+          .from('user_profiles')
+          .update({ is_active: isActive, updated_at: new Date().toISOString() })
+          .eq('id', targetUserId);
+        if (!updateErr) {
+          return { success: true, is_active: isActive, fallback: true };
+        }
+      }
+      throw new Error(payload?.error || `Staff management request failed (${res.status})`);
+    }
+
+    return payload;
+  },
 };

@@ -91,6 +91,19 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_active_user()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT is_active FROM public.user_profiles WHERE id = auth.uid() LIMIT 1),
+    false
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION public.has_active_subscription(p_tenant_id UUID DEFAULT public.current_tenant_id())
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -102,6 +115,7 @@ AS $$
     public.is_super_admin()
     OR (
       p_tenant_id IS NOT NULL
+      AND (auth.uid() IS NULL OR public.is_active_user())
       AND EXISTS (
         SELECT 1
         FROM public.tenants t
@@ -369,7 +383,11 @@ CREATE POLICY "Users can view staff within their own tenant"
   TO authenticated
   USING (
     id = auth.uid()
-    OR (tenant_id IS NOT NULL AND tenant_id = public.current_tenant_id())
+    OR (
+      public.current_user_role() = 'lab_owner'
+      AND tenant_id IS NOT NULL
+      AND tenant_id = public.current_tenant_id()
+    )
   );
 
 DROP POLICY IF EXISTS "Lab owners can manage staff profiles in their own lab" ON public.user_profiles;
@@ -499,10 +517,11 @@ CREATE POLICY "Tenant staff can view doctors"
   USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 DROP POLICY IF EXISTS "Tenant staff can manage doctors" ON public.doctors;
-CREATE POLICY "Tenant staff can manage doctors"
+DROP POLICY IF EXISTS "Lab owner can manage doctors" ON public.doctors;
+CREATE POLICY "Lab owner can manage doctors"
   ON public.doctors FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 -- -------------------------------------------------------------------------
 -- 6. TESTS & TEST PARAMETERS POLICIES
@@ -554,13 +573,13 @@ CREATE POLICY "Tenant staff can view reports"
 DROP POLICY IF EXISTS "Tenant staff can create reports" ON public.reports;
 CREATE POLICY "Tenant staff can create reports"
   ON public.reports FOR INSERT TO authenticated
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 DROP POLICY IF EXISTS "Tenant staff can update reports" ON public.reports;
 CREATE POLICY "Tenant staff can update reports"
   ON public.reports FOR UPDATE TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 -- -------------------------------------------------------------------------
 -- 9. REPORT SERVICES, TEST RESULTS, X-RAY RESULTS POLICIES
@@ -573,8 +592,8 @@ CREATE POLICY "Tenant staff can view report services"
 DROP POLICY IF EXISTS "Tenant staff can manage report services" ON public.report_services;
 CREATE POLICY "Tenant staff can manage report services"
   ON public.report_services FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 DROP POLICY IF EXISTS "Tenant staff can view report test results" ON public.report_test_results;
 CREATE POLICY "Tenant staff can view report test results"
@@ -584,8 +603,8 @@ CREATE POLICY "Tenant staff can view report test results"
 DROP POLICY IF EXISTS "Tenant staff can manage report test results" ON public.report_test_results;
 CREATE POLICY "Tenant staff can manage report test results"
   ON public.report_test_results FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
 
 DROP POLICY IF EXISTS "Tenant staff can view report xray results" ON public.report_xray_results;
 CREATE POLICY "Tenant staff can view report xray results"
@@ -595,8 +614,114 @@ CREATE POLICY "Tenant staff can view report xray results"
 DROP POLICY IF EXISTS "Tenant staff can manage report xray results" ON public.report_xray_results;
 CREATE POLICY "Tenant staff can manage report xray results"
   ON public.report_xray_results FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
+  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+
+-- -------------------------------------------------------------------------
+-- 10. IMMUTABLE AUDIT LOGS (AUTOMATIC POSTGRESQL TRIGGERS)
+-- -------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
+  actor_user_id UUID,
+  actor_email TEXT,
+  actor_role TEXT,
+  table_name TEXT NOT NULL,
+  record_id TEXT,
+  action TEXT NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
+  old_data JSONB,
+  new_data JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_time ON public.audit_logs(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_table_time ON public.audit_logs(table_name, created_at DESC);
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super Admin can view all audit logs" ON public.audit_logs;
+CREATE POLICY "Super Admin can view all audit logs"
+  ON public.audit_logs FOR SELECT TO authenticated
+  USING (public.is_super_admin());
+
+DROP POLICY IF EXISTS "Lab owner can view own tenant audit logs" ON public.audit_logs;
+CREATE POLICY "Lab owner can view own tenant audit logs"
+  ON public.audit_logs FOR SELECT TO authenticated
+  USING (
+    tenant_id IS NOT NULL
+    AND tenant_id = public.current_tenant_id()
+    AND public.current_user_role() = 'lab_owner'
+  );
+
+CREATE OR REPLACE FUNCTION public.record_audit_log()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_old JSONB := CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) ELSE NULL END;
+  v_new JSONB := CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) ELSE NULL END;
+  v_payload JSONB := COALESCE(v_new, v_old);
+  v_tenant_id UUID;
+  v_record_id TEXT;
+  v_actor_id UUID := auth.uid();
+  v_actor_email TEXT;
+  v_actor_role TEXT;
+BEGIN
+  IF TG_TABLE_NAME = 'tenants' THEN
+    v_tenant_id := NULLIF(v_payload->>'id', '')::UUID;
+    v_record_id := v_payload->>'id';
+  ELSIF TG_TABLE_NAME = 'tenant_settings' THEN
+    v_tenant_id := NULLIF(v_payload->>'tenant_id', '')::UUID;
+    v_record_id := v_payload->>'tenant_id';
+  ELSE
+    v_tenant_id := NULLIF(v_payload->>'tenant_id', '')::UUID;
+    v_record_id := v_payload->>'id';
+  END IF;
+
+  IF v_actor_id IS NOT NULL THEN
+    SELECT email, role
+    INTO v_actor_email, v_actor_role
+    FROM public.user_profiles
+    WHERE id = v_actor_id
+    LIMIT 1;
+  END IF;
+
+  INSERT INTO public.audit_logs (
+    tenant_id, actor_user_id, actor_email, actor_role,
+    table_name, record_id, action, old_data, new_data
+  ) VALUES (
+    v_tenant_id, v_actor_id, COALESCE(v_actor_email, current_user), COALESCE(v_actor_role, current_user),
+    TG_TABLE_NAME, v_record_id, TG_OP, v_old, v_new
+  );
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+DECLARE
+  tbl TEXT;
+  audited_tables TEXT[] := ARRAY[
+    'tenants', 'tenant_subscriptions', 'user_profiles', 'tenant_settings',
+    'doctors', 'tests', 'test_parameters', 'patients',
+    'reports', 'report_services', 'report_test_results', 'report_xray_results'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY audited_tables
+  LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_audit_%I ON public.%I', tbl, tbl);
+    EXECUTE format(
+      'CREATE TRIGGER trg_audit_%I AFTER INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.record_audit_log()',
+      tbl, tbl
+    );
+  END LOOP;
+END;
+$$;
 
 
 -- =========================================================================
@@ -876,7 +1001,7 @@ CREATE POLICY "Public can view lab assets"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'lab-assets');
 
--- Allow authenticated tenant staff to upload and update images in their own tenant folder
+-- Allow authenticated Lab Owners / Super Admins to upload and update images in their own tenant folder
 DROP POLICY IF EXISTS "Tenant staff can upload assets to their own folder" ON storage.objects;
 CREATE POLICY "Tenant staff can upload assets to their own folder"
   ON storage.objects FOR INSERT
@@ -884,6 +1009,7 @@ CREATE POLICY "Tenant staff can upload assets to their own folder"
   WITH CHECK (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -894,6 +1020,7 @@ CREATE POLICY "Tenant staff can update assets in their own folder"
   USING (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -904,6 +1031,7 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
   USING (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -1131,6 +1259,9 @@ GRANT EXECUTE ON FUNCTION public.generate_next_report_number(UUID) TO authentica
 
 REVOKE ALL ON FUNCTION public.seed_tenant_catalog(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog(UUID) TO service_role;
+
+REVOKE ALL ON FUNCTION public.is_active_user() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_active_user() TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.has_active_subscription(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_active_subscription(UUID) TO authenticated, service_role;

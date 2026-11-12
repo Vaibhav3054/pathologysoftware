@@ -10,11 +10,17 @@ import {
   Search, 
   ChevronRight, 
   ListPlus,
-  Sliders
+  Sliders,
+  Lock
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../config/permissions';
 
 export default function TestsManager() {
+  const { hasPermission } = useAuth();
+  const canManageTests = hasPermission(PERMISSIONS.MANAGE_TESTS);
+
   const [activeTab, setActiveTab] = useState('blood'); // 'blood' or 'xray'
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState(null);
@@ -70,6 +76,7 @@ export default function TestsManager() {
   // Add Test
   const handleAddTest = async (e) => {
     e.preventDefault();
+    if (!canManageTests) return;
     if (!newTestName.trim()) return;
     try {
       await api.addTest(
@@ -90,6 +97,7 @@ export default function TestsManager() {
   // Edit Test Price / Name
   const handleUpdateTest = async (e) => {
     e.preventDefault();
+    if (!canManageTests) return;
     if (!editingTest || !editingTest.name.trim()) return;
     try {
       await api.updateTest(editingTest.id, editingTest.name, editingTest.price);
@@ -105,6 +113,7 @@ export default function TestsManager() {
 
   // Delete Test
   const handleDeleteTest = async (id, name) => {
+    if (!canManageTests) return;
     if (!confirm(`Are you sure you want to delete "${name}"? This will also remove its parameter templates.`)) return;
     try {
       await api.deleteTest(id);
@@ -117,6 +126,7 @@ export default function TestsManager() {
   // Save / Update Parameter
   const handleSaveParam = async (e) => {
     e.preventDefault();
+    if (!canManageTests) return;
     if (!paramName.trim() || !selectedTest) return;
 
     try {
@@ -151,6 +161,7 @@ export default function TestsManager() {
 
   // Delete Parameter
   const handleDeleteParam = async (paramId) => {
+    if (!canManageTests) return;
     if (!confirm('Are you sure you want to delete this test parameter?')) return;
     try {
       await api.deleteParameter(paramId);
@@ -191,8 +202,19 @@ export default function TestsManager() {
             <Sliders className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Tests & X-Rays Management</h2>
-            <p className="text-xs text-slate-500">Configure prices, parameters, units, and normal reference ranges</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold text-slate-800">Tests & X-Rays Management</h2>
+              {!canManageTests && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  <Lock className="w-3 h-3" /> Read-Only View
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              {canManageTests
+                ? 'Configure prices, parameters, units, and normal reference ranges'
+                : 'View test catalog, prices, and reference ranges (contact Lab Owner to make changes)'}
+            </p>
           </div>
         </div>
 
@@ -232,13 +254,15 @@ export default function TestsManager() {
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
             </div>
-            <button
-              onClick={() => setShowAddTestModal(true)}
-              className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add</span>
-            </button>
+            {canManageTests && (
+              <button
+                onClick={() => setShowAddTestModal(true)}
+                className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add</span>
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
@@ -263,26 +287,30 @@ export default function TestsManager() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingTest(test);
-                        }}
-                        className="p-1 text-slate-400 hover:text-amber-600 rounded"
-                        title="Edit Price/Name"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTest(test.id, test.name);
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canManageTests && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTest(test);
+                            }}
+                            className="p-1 text-slate-400 hover:text-amber-600 rounded"
+                            title="Edit Price/Name"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTest(test.id, test.name);
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                       <ChevronRight className={`w-4 h-4 ${isSelected ? 'text-sky-600' : 'text-slate-300'}`} />
                     </div>
                   </div>
@@ -309,26 +337,30 @@ export default function TestsManager() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setEditingTest(selectedTest)}
-                    className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>Change Price / Name</span>
-                  </button>
+                  {canManageTests && (
+                    <>
+                      <button
+                        onClick={() => setEditingTest(selectedTest)}
+                        className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Change Price / Name</span>
+                      </button>
 
-                  {activeTab === 'blood' && (
-                    <button
-                      onClick={() => {
-                        resetParamForm();
-                        setEditingParam(null);
-                        setShowAddParamModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-xs transition"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Add Parameter</span>
-                    </button>
+                      {activeTab === 'blood' && (
+                        <button
+                          onClick={() => {
+                            resetParamForm();
+                            setEditingParam(null);
+                            setShowAddParamModal(true);
+                          }}
+                          className="flex items-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Add Parameter</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -349,15 +381,17 @@ export default function TestsManager() {
                     <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl space-y-2">
                       <ListPlus className="w-8 h-8 mx-auto text-slate-300" />
                       <p>No parameters defined for this test yet.</p>
-                      <button
-                        onClick={() => {
-                          resetParamForm();
-                          setShowAddParamModal(true);
-                        }}
-                        className="text-sky-600 font-semibold hover:underline"
-                      >
-                        + Add First Parameter
-                      </button>
+                      {canManageTests && (
+                        <button
+                          onClick={() => {
+                            resetParamForm();
+                            setShowAddParamModal(true);
+                          }}
+                          className="text-sky-600 font-semibold hover:underline"
+                        >
+                          + Add First Parameter
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -369,7 +403,7 @@ export default function TestsManager() {
                               <th className="py-2.5 px-3 w-1/3">Parameter Name</th>
                               <th className="py-2.5 px-3 w-1/6">Unit</th>
                               <th className="py-2.5 px-3 w-1/3">Normal Range</th>
-                              <th className="py-2.5 px-3 text-right">Actions</th>
+                              {canManageTests && <th className="py-2.5 px-3 text-right">Actions</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -384,22 +418,24 @@ export default function TestsManager() {
                                 <td className="py-2.5 px-3 text-slate-700">
                                   {p.normal_range || '—'}
                                 </td>
-                                <td className="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-                                  <button
-                                    onClick={() => openEditParam(p)}
-                                    className="p-1 text-slate-400 hover:text-amber-600 rounded"
-                                    title="Edit Parameter"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteParam(p.id)}
-                                    className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                                    title="Delete Parameter"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
+                                {canManageTests && (
+                                  <td className="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                                    <button
+                                      onClick={() => openEditParam(p)}
+                                      className="p-1 text-slate-400 hover:text-amber-600 rounded"
+                                      title="Edit Parameter"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteParam(p.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                      title="Delete Parameter"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -417,22 +453,24 @@ export default function TestsManager() {
                                 {p.normal_range && <span> • Normal: <strong className="text-slate-700">{p.normal_range}</strong></span>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => openEditParam(p)}
-                                className="p-2 text-slate-500 hover:text-amber-600 bg-slate-50 rounded-lg border border-slate-200"
-                                title="Edit Parameter"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteParam(p.id)}
-                                className="p-2 text-slate-500 hover:text-rose-600 bg-slate-50 rounded-lg border border-slate-200"
-                                title="Delete Parameter"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                            {canManageTests && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => openEditParam(p)}
+                                  className="p-2 text-slate-500 hover:text-amber-600 bg-slate-50 rounded-lg border border-slate-200"
+                                  title="Edit Parameter"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteParam(p.id)}
+                                  className="p-2 text-slate-500 hover:text-rose-600 bg-slate-50 rounded-lg border border-slate-200"
+                                  title="Delete Parameter"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -452,21 +490,22 @@ export default function TestsManager() {
                     <li><strong>Remarks / Advice:</strong> Optional follow-up recommendations.</li>
                   </ul>
                   <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-200">
-                    Standard price for this X-ray is ₹{selectedTest.price}. You can modify the price anytime using the "Change Price" button above.
+                    Standard price for this X-ray is ₹{selectedTest.price}.
+                    {canManageTests ? ' You can modify the price anytime using the "Change Price" button above.' : ''}
                   </p>
                 </div>
               )}
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-400 text-sm">
-              Select a service from the left to view or edit details.
+              Select a service from the left to view {canManageTests ? 'or edit ' : ''}details.
             </div>
           )}
         </div>
       </div>
 
       {/* Add Service Modal */}
-      {showAddTestModal && (
+      {canManageTests && showAddTestModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">

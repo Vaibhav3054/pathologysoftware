@@ -17,8 +17,12 @@ import {
   HeartPulse
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../config/permissions';
 
 export default function NewEntry({ onRegistrationComplete, prefilledPatient = null }) {
+  const { hasPermission } = useAuth();
+  const canManageDoctors = hasPermission(PERMISSIONS.MANAGE_DOCTORS);
   // Form State
   const [reportNumber, setReportNumber] = useState('');
   const [registrationDate, setRegistrationDate] = useState('');
@@ -376,14 +380,16 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                 <label className="block text-xs font-semibold text-slate-600">
                   Ref Doctor
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddDoctorModal(true)}
-                  className="text-[11px] text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-0.5"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>New Doctor</span>
-                </button>
+                {canManageDoctors && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDoctorModal(true)}
+                    className="text-[11px] text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-0.5"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New Doctor</span>
+                  </button>
+                )}
               </div>
               <select
                 value={doctorName}
@@ -637,7 +643,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
       </form>
 
       {/* Quick Add Doctor Modal */}
-      {showAddDoctorModal && (
+      {canManageDoctors && showAddDoctorModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">

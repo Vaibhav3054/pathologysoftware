@@ -21,7 +21,7 @@ CREATE POLICY "Public can view lab assets"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'lab-assets');
 
--- Allow authenticated tenant staff to upload and update images in their own tenant folder
+-- Allow authenticated Lab Owners / Super Admins to upload and update images in their own tenant folder
 DROP POLICY IF EXISTS "Tenant staff can upload assets to their own folder" ON storage.objects;
 CREATE POLICY "Tenant staff can upload assets to their own folder"
   ON storage.objects FOR INSERT
@@ -29,6 +29,7 @@ CREATE POLICY "Tenant staff can upload assets to their own folder"
   WITH CHECK (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -39,6 +40,7 @@ CREATE POLICY "Tenant staff can update assets in their own folder"
   USING (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -49,6 +51,7 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
   USING (
     bucket_id = 'lab-assets' AND
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT AND
+    public.current_user_role() IN ('lab_owner', 'super_admin') AND
     public.has_active_subscription(public.current_tenant_id())
   );
 
@@ -276,6 +279,9 @@ GRANT EXECUTE ON FUNCTION public.generate_next_report_number(UUID) TO authentica
 
 REVOKE ALL ON FUNCTION public.seed_tenant_catalog(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.seed_tenant_catalog(UUID) TO service_role;
+
+REVOKE ALL ON FUNCTION public.is_active_user() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_active_user() TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.has_active_subscription(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_active_subscription(UUID) TO authenticated, service_role;

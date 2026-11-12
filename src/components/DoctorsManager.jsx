@@ -7,11 +7,17 @@ import {
   Search, 
   X, 
   Check, 
-  Stethoscope 
+  Stethoscope,
+  ShieldAlert
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../config/permissions';
 
 export default function DoctorsManager() {
+  const { hasPermission } = useAuth();
+  const canManageDoctors = hasPermission(PERMISSIONS.MANAGE_DOCTORS);
+
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,6 +45,7 @@ export default function DoctorsManager() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!canManageDoctors) return;
     if (!newDoctorName.trim()) return;
     try {
       await api.addDoctor(newDoctorName.trim());
@@ -52,6 +59,7 @@ export default function DoctorsManager() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    if (!canManageDoctors) return;
     if (!editingDoctor || !editingDoctor.name.trim()) return;
     try {
       await api.updateDoctor(editingDoctor.id, editingDoctor.name.trim());
@@ -63,6 +71,7 @@ export default function DoctorsManager() {
   };
 
   const handleDelete = async (id, name) => {
+    if (!canManageDoctors) return;
     if (!confirm(`Are you sure you want to remove "${name}" from the reference doctor list?`)) return;
     try {
       await api.deleteDoctor(id);
@@ -75,6 +84,20 @@ export default function DoctorsManager() {
   const filteredDoctors = doctors.filter(d => 
     d.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (!canManageDoctors) {
+    return (
+      <div className="max-w-lg mx-auto mt-10 bg-white rounded-2xl border border-rose-200 shadow-sm p-8 text-center space-y-3">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">Access Denied</h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Only Lab Owners can manage the Reference Doctors directory. You can still select existing doctors when creating patient registrations.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

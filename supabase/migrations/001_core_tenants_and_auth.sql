@@ -91,6 +91,19 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_active_user()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT is_active FROM public.user_profiles WHERE id = auth.uid() LIMIT 1),
+    false
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION public.has_active_subscription(p_tenant_id UUID DEFAULT public.current_tenant_id())
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -102,6 +115,7 @@ AS $$
     public.is_super_admin()
     OR (
       p_tenant_id IS NOT NULL
+      AND (auth.uid() IS NULL OR public.is_active_user())
       AND EXISTS (
         SELECT 1
         FROM public.tenants t

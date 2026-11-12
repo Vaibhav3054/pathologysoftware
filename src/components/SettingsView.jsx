@@ -24,14 +24,32 @@ import {
   Sparkles,
   CheckCircle2,
   CreditCard,
-  ArrowRight
+  ArrowRight,
+  KeyRound,
+  Edit2,
+  UserX,
+  UserCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { supabase, createAuthUserWithoutSessionReplace } from '../services/supabase';
+import { PERMISSIONS, getRoleDisplayLabel } from '../config/permissions';
 
 export default function SettingsView({ initialTab = 'clinic' }) {
-  const { tenant, profile, subscription, isLabOwner, isSuperAdmin, isTrial, getTrialDaysRemaining, upgradeSubscription } = useAuth();
+  const {
+    tenant,
+    profile,
+    subscription,
+    isLabOwner,
+    isSuperAdmin,
+    isTrial,
+    getTrialDaysRemaining,
+    upgradeSubscription,
+    hasPermission,
+  } = useAuth();
+  const canManageSettings = hasPermission(PERMISSIONS.MANAGE_SETTINGS);
+  const canManageStaff = hasPermission(PERMISSIONS.MANAGE_STAFF);
 
   const [settings, setSettings] = useState({
     clinic_name: 'DIAGNOSTIC & CLINICAL LABORATORY',
@@ -79,6 +97,20 @@ export default function SettingsView({ initialTab = 'clinic' }) {
   const [staffRole, setStaffRole] = useState('receptionist');
   const [staffError, setStaffError] = useState('');
   const [staffSuccess, setStaffSuccess] = useState('');
+  const [staffActionLoading, setStaffActionLoading] = useState(null);
+
+  // Direct Staff Password Reset Modal
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+
+  // Edit Staff Modal
+  const [editingStaffUser, setEditingStaffUser] = useState(null);
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editStaffEmail, setEditStaffEmail] = useState('');
+  const [editStaffRole, setEditStaffRole] = useState('receptionist');
+  const [editStaffError, setEditStaffError] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -208,6 +240,143 @@ export default function SettingsView({ initialTab = 'clinic' }) {
       setStaffError(err.message || 'Failed to create staff member.');
     }
   };
+
+  const openResetPasswordModal = (user) => {
+    setResetPasswordUser(user);
+    setResetNewPassword('');
+    setShowResetPassword(false);
+    setResetPasswordError('');
+    setStaffError('');
+    setStaffSuccess('');
+  };
+
+  const handleResetStaffPassword = async (e) => {
+    e.preventDefault();
+    if (!canManageStaff || !resetPasswordUser) return;
+    setResetPasswordError('');
+    if (!resetNewPassword || resetNewPassword.length < 6) {
+      setResetPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      setStaffActionLoading(resetPasswordUser.id);
+      await api.manageStaffAccount({
+        action: 'reset_password',
+        targetUserId: resetPasswordUser.id,
+        newPassword: resetNewPassword,
+      });
+      setStaffSuccess(`Password updated for ${resetPasswordUser.full_name || resetPasswordUser.email}.`);
+      setResetPasswordUser(null);
+      setResetNewPassword('');
+    } catch (err) {
+      setResetPasswordError(err.message || 'Failed to reset password.');
+    } finally {
+      setStaffActionLoading(null);
+    }
+  };
+
+  const openEditStaffModal = (user) => {
+    setEditingStaffUser(user);
+    setEditStaffName(user.full_name || '');
+    setEditStaffEmail(user.email || '');
+    setEditStaffRole(user.role === 'lab_owner' ? 'lab_owner' : 'receptionist');
+    setEditStaffError('');
+    setStaffError('');
+    setStaffSuccess('');
+  };
+
+  const handleUpdateStaff = async (e) => {
+    e.preventDefault();
+    if (!canManageStaff || !editingStaffUser) return;
+    setEditStaffError('');
+    if (!editStaffName.trim() || !editStaffEmail.trim()) {
+      setEditStaffError('Full name and email are required.');
+      return;
+    }
+
+    try {
+      setStaffActionLoading(editingStaffUser.id);
+      await api.manageStaffAccount({
+        action: 'update_staff',
+        targetUserId: editingStaffUser.id,
+        fullName: editStaffName.trim(),
+        email: editStaffEmail.trim(),
+        role: editStaffRole,
+      });
+      setStaffSuccess(`Updated details for ${editStaffName.trim()}.`);
+      setEditingStaffUser(null);
+      await loadStaff();
+    } catch (err) {
+      setEditStaffError(err.message || 'Failed to update staff account.');
+    } finally {
+      setStaffActionLoading(null);
+    }
+  };
+
+  const handleToggleStaffActive = async (user) => {
+    if (!canManageStaff) return;
+    const nextActive = user.is_active === false;
+    const label = user.full_name || user.email;
+    if (!nextActive && !confirm(`Deactivate ${label}? They will immediately lose access until reactivated.`)) {
+      return;
+    }
+
+    try {
+      setStaffError('');
+      setStaffSuccess('');
+      setStaffActionLoading(user.id);
+      await api.manageStaffAccount({
+        action: 'toggle_active',
+        targetUserId: user.id,
+        isActive: nextActive,
+      });
+      setStaffSuccess(`${label} has been ${nextActive ? 'activated' : 'deactivated'}.`);
+      await loadStaff();
+    } catch (err) {
+      setStaffError(err.message || 'Failed to update account status.');
+    } finally {
+      setStaffActionLoading(null);
+    }
+  };
+
+  const handleDeleteStaff = async (user) => {
+    if (!canManageStaff) return;
+    const label = user.full_name || user.email;
+    if (!confirm(`Permanently delete staff account "${label}" (${user.email})? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setStaffError('');
+      setStaffSuccess('');
+      setStaffActionLoading(user.id);
+      await api.manageStaffAccount({
+        action: 'delete_staff',
+        targetUserId: user.id,
+      });
+      setStaffSuccess(`Staff account ${label} was deleted.`);
+      await loadStaff();
+    } catch (err) {
+      setStaffError(err.message || 'Failed to delete staff account.');
+    } finally {
+      setStaffActionLoading(null);
+    }
+  };
+
+  if (!canManageSettings) {
+    return (
+      <div className="max-w-lg mx-auto mt-10 bg-white rounded-2xl border border-rose-200 shadow-sm p-8 text-center space-y-3">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">Access Denied</h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Only Lab Owners can access laboratory settings, staff logins, and subscription configuration.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -614,11 +783,15 @@ export default function SettingsView({ initialTab = 'clinic' }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
               <h3 className="font-bold text-slate-800 text-base">Laboratory Staff & Role Accounts</h3>
-              <p className="text-xs text-slate-500">Manage user logins for receptionists, technicians, and laboratory administrators</p>
+              <p className="text-xs text-slate-500">Manage Owner (full access) and Receptionist (patient entry, billing &amp; reporting) login accounts</p>
             </div>
 
             <button
-              onClick={() => setShowAddStaffModal(true)}
+              onClick={() => {
+                setStaffError('');
+                setStaffSuccess('');
+                setShowAddStaffModal(true);
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <UserPlus className="w-4 h-4" />
@@ -626,9 +799,16 @@ export default function SettingsView({ initialTab = 'clinic' }) {
             </button>
           </div>
 
+          {staffError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{staffError}</span>
+            </div>
+          )}
+
           {staffSuccess && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600" />
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{staffSuccess}</span>
             </div>
           )}
@@ -641,46 +821,110 @@ export default function SettingsView({ initialTab = 'clinic' }) {
                   <th className="p-3.5">Full Name</th>
                   <th className="p-3.5">Email</th>
                   <th className="p-3.5">Assigned Role</th>
-                  <th className="p-3.5">Account Status</th>
-                  <th className="p-3.5">Joined Date</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5">Joined</th>
+                  <th className="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {staffList.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="p-6 text-center text-slate-400 text-xs">
+                    <td colSpan="6" className="p-6 text-center text-slate-400 text-xs">
                       No additional staff accounts added yet.
                     </td>
                   </tr>
                 ) : (
-                  staffList.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3.5 font-bold text-slate-800">
-                        {user.full_name || 'Staff Member'}
-                      </td>
-                      <td className="p-3.5 font-mono">{user.email}</td>
-                      <td className="p-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          user.role === 'lab_owner'
-                            ? 'bg-purple-100 text-purple-800'
-                            : user.role === 'receptionist'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="p-3.5">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                          <Check className="w-3 h-3" />
-                          <span>Active</span>
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-slate-400 font-mono text-[11px]">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))
+                  staffList.map((user) => {
+                    const isActive = user.is_active !== false;
+                    const isSelf = user.id === profile?.id;
+                    const busy = staffActionLoading === user.id;
+                    return (
+                      <tr key={user.id} className="hover:bg-slate-50/70 transition">
+                        <td className="p-3.5 font-bold text-slate-800">
+                          {user.full_name || 'Staff Member'}
+                          {isSelf && (
+                            <span className="ml-1.5 text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+                              You
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-mono text-[11px]">{user.email}</td>
+                        <td className="p-3.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            user.role === 'lab_owner'
+                              ? 'bg-purple-100 text-purple-800'
+                              : user.role === 'super_admin'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {getRoleDisplayLabel(user.role)}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          {isActive ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                              <Check className="w-3 h-3" />
+                              <span>Active</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600">
+                              <UserX className="w-3 h-3" />
+                              <span>Deactivated</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-slate-400 font-mono text-[11px]">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-3.5 text-right whitespace-nowrap space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => openResetPasswordModal(user)}
+                            disabled={busy}
+                            className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+                            title="Reset Password"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+                          {!isSelf && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditStaffModal(user)}
+                                disabled={busy}
+                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                                title="Edit Staff Details"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleStaffActive(user)}
+                                disabled={busy}
+                                className={`p-1.5 rounded-lg transition ${
+                                  isActive
+                                    ? 'text-slate-500 hover:text-amber-700 hover:bg-amber-50'
+                                    : 'text-emerald-600 hover:bg-emerald-50'
+                                }`}
+                                title={isActive ? 'Deactivate Account' : 'Activate Account'}
+                              >
+                                {isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStaff(user)}
+                                disabled={busy}
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                title="Delete Staff Account"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -693,38 +937,96 @@ export default function SettingsView({ initialTab = 'clinic' }) {
                 No additional staff accounts added yet.
               </div>
             ) : (
-              staffList.map((user) => (
-                <div key={user.id} className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-slate-800 text-sm">
-                        {user.full_name || 'Staff Member'}
+              staffList.map((user) => {
+                const isActive = user.is_active !== false;
+                const isSelf = user.id === profile?.id;
+                const busy = staffActionLoading === user.id;
+                return (
+                  <div key={user.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-slate-800 text-sm">
+                          {user.full_name || 'Staff Member'}
+                          {isSelf && (
+                            <span className="ml-1.5 text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono text-slate-500 mt-0.5 break-all">
+                          {user.email}
+                        </div>
                       </div>
-                      <div className="text-xs font-mono text-slate-500 mt-0.5 break-all">
-                        {user.email}
-                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
+                        user.role === 'lab_owner'
+                          ? 'bg-purple-100 text-purple-800'
+                          : user.role === 'super_admin'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {getRoleDisplayLabel(user.role)}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
-                      user.role === 'lab_owner'
-                        ? 'bg-purple-100 text-purple-800'
-                        : user.role === 'receptionist'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {user.role}
-                    </span>
+                    <div className="flex items-center justify-between text-[11px]">
+                      {isActive ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                          <Check className="w-3 h-3" />
+                          <span>Active Account</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-rose-600">
+                          <UserX className="w-3 h-3" />
+                          <span>Deactivated</span>
+                        </span>
+                      )}
+                      <span className="text-slate-400 font-mono">
+                        Joined {new Date(user.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => openResetPasswordModal(user)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 text-[11px] font-semibold"
+                      >
+                        <KeyRound className="w-3 h-3" /> Reset Password
+                      </button>
+                      {!isSelf && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEditStaffModal(user)}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-semibold"
+                          >
+                            <Edit2 className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStaffActive(user)}
+                            disabled={busy}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold ${
+                              isActive ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                            }`}
+                          >
+                            {isActive ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
+                            {isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStaff(user)}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[11px] font-semibold"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] pt-1">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
-                      <Check className="w-3 h-3" />
-                      <span>Active Account</span>
-                    </span>
-                    <span className="text-slate-400 font-mono">
-                      Joined {new Date(user.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -959,9 +1261,8 @@ export default function SettingsView({ initialTab = 'clinic' }) {
                   onChange={(e) => setStaffRole(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
                 >
-                  <option value="receptionist">Receptionist (Patient Entry & Invoicing)</option>
-                  <option value="technician">Technician (Test Result Entry & Reports)</option>
-                  <option value="lab_owner">Lab Administrator (Full Lab Access)</option>
+                  <option value="receptionist">Receptionist (Patient Entry, Billing &amp; Reports — Read-Only Catalog)</option>
+                  <option value="lab_owner">Owner (Full Lab, Tests, Pricing, Doctors &amp; Staff Access)</option>
                 </select>
               </div>
 
@@ -978,6 +1279,153 @@ export default function SettingsView({ initialTab = 'clinic' }) {
                   className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 transition active:scale-95"
                 >
                   Create Staff Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Staff Password Modal */}
+      {resetPasswordUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-slate-200 space-y-5">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-sky-600" />
+                <span>Reset Staff Password</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Set a new password immediately for{' '}
+                <strong className="text-slate-700">{resetPasswordUser.full_name || resetPasswordUser.email}</strong>{' '}
+                without requiring email confirmation.
+              </p>
+            </div>
+
+            {resetPasswordError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{resetPasswordError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleResetStaffPassword} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    required
+                    minLength={6}
+                    autoFocus
+                    className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    tabIndex={-1}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer"
+                    title={showResetPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordUser(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={staffActionLoading === resetPasswordUser.id}
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 transition disabled:opacity-60"
+                >
+                  {staffActionLoading === resetPasswordUser.id ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Details Modal */}
+      {editingStaffUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-slate-200 space-y-5">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-sky-600" />
+                <span>Edit Staff Account</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Update login details or role for {editingStaffUser.full_name || editingStaffUser.email}.
+              </p>
+            </div>
+
+            {editStaffError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{editStaffError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={editStaffName}
+                  onChange={(e) => setEditStaffName(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Login Email</label>
+                <input
+                  type="email"
+                  value={editStaffEmail}
+                  onChange={(e) => setEditStaffEmail(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Assigned Role</label>
+                <select
+                  value={editStaffRole}
+                  onChange={(e) => setEditStaffRole(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
+                >
+                  <option value="receptionist">Receptionist (Patient Entry, Billing &amp; Reports)</option>
+                  <option value="lab_owner">Owner (Full Lab &amp; Staff Access)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaffUser(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={staffActionLoading === editingStaffUser.id}
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 transition disabled:opacity-60"
+                >
+                  {staffActionLoading === editingStaffUser.id ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

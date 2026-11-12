@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../config/permissions';
 
 export default function Dashboard({ setCurrentView, onViewReport, onEditReport }) {
-  const { tenant, tenantSettings, isTrial, getTrialDaysRemaining } = useAuth();
+  const { tenant, tenantSettings, isTrial, getTrialDaysRemaining, hasPermission } = useAuth();
+  const canManageSubscription = hasPermission(PERMISSIONS.MANAGE_SUBSCRIPTION);
   const [stats, setStats] = useState({
     patientsToday: 0,
     reportsToday: 0,
@@ -116,12 +118,14 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
             </div>
           </div>
 
-          <button
-            onClick={() => setCurrentView('settings-subscription')}
-            className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm shrink-0 cursor-pointer text-center"
-          >
-            Upgrade to Full Plan
-          </button>
+          {canManageSubscription && (
+            <button
+              onClick={() => setCurrentView('settings-subscription')}
+              className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm shrink-0 cursor-pointer text-center"
+            >
+              Upgrade to Full Plan
+            </button>
+          )}
         </div>
       )}
 

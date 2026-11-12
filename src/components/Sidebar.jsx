@@ -11,14 +11,16 @@ import {
   Activity,
   LogOut,
   Crown,
+  KeyRound,
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getRoleDisplayLabel } from '../config/permissions';
 
-export default function Sidebar({ currentView, setCurrentView, isOpen = false, onClose }) {
-  const { profile, tenant, tenantSettings, signOut, isSuperAdmin, isTrial, getTrialDaysRemaining } = useAuth();
+export default function Sidebar({ currentView, setCurrentView, isOpen = false, onClose, onOpenChangePassword }) {
+  const { profile, tenant, tenantSettings, signOut, isSuperAdmin, canAccessView, isTrial, getTrialDaysRemaining } = useAuth();
 
-  const menuItems = [
+  const allMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'new-entry', label: 'New Entry', icon: UserPlus, highlight: true },
     { id: 'patients', label: 'Patients', icon: Users },
@@ -27,6 +29,8 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
     { id: 'doctors', label: 'Reference Doctors', icon: UserCheck },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  const menuItems = allMenuItems.filter((item) => canAccessView(item.id));
 
   if (isSuperAdmin) {
     menuItems.unshift({
@@ -40,8 +44,8 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
   const labName = tenantSettings?.clinic_name || tenant?.name || 'DIAGNOSTIC CENTRE';
   const labLogo = tenantSettings?.logo_url;
 
-  const handleSelectView = (viewId) => {
-    setCurrentView(viewId);
+  const handleSelectView = (viewId, extra) => {
+    setCurrentView(viewId, extra);
     if (onClose) onClose();
   };
 
@@ -68,7 +72,7 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-[10px] font-semibold text-sky-400 tracking-wider uppercase">
-                  {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'lab_owner' ? 'Lab Admin' : profile?.role || 'Staff'}
+                  {getRoleDisplayLabel(profile?.role)}
                 </span>
                 {tenant?.is_test_lab && (
                   <span className="bg-indigo-500/30 text-indigo-300 text-[9px] px-1 rounded font-bold">Demo</span>
@@ -164,7 +168,7 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
       </div>
 
       {/* Footer Info & Sign Out */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-3 shrink-0">
+      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-2.5 shrink-0">
         <div className="flex items-center justify-between text-slate-400">
           <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -174,12 +178,49 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
         </div>
 
         <button
+          onClick={() => {
+            if (onOpenChangePassword) onOpenChangePassword();
+            if (onClose) onClose();
+          }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition text-xs font-medium border border-slate-700/60"
+        >
+          <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+          <span>Change Password</span>
+        </button>
+
+        <button
           onClick={signOut}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 transition text-xs font-semibold border border-slate-700/60"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
         </button>
+
+        <div className="pt-1 text-center text-[10px] text-slate-500 flex items-center justify-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleSelectView('legal', 'terms')}
+            className="hover:text-slate-300 transition"
+          >
+            Terms
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => handleSelectView('legal', 'privacy')}
+            className="hover:text-slate-300 transition"
+          >
+            Privacy
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => handleSelectView('legal', 'refund')}
+            className="hover:text-slate-300 transition"
+          >
+            Refund Policy
+          </button>
+        </div>
       </div>
     </div>
   );

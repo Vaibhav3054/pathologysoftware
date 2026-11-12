@@ -16,6 +16,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import LegalPagesView from './LegalPagesView';
 
 export default function RegisterLabView({ onSwitchToLogin }) {
   const { registerLab } = useAuth();
@@ -26,6 +27,8 @@ export default function RegisterLabView({ onSwitchToLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [agreedToLegal, setAgreedToLegal] = useState(false);
+  const [legalTab, setLegalTab] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successInfo, setSuccessInfo] = useState('');
@@ -42,6 +45,11 @@ export default function RegisterLabView({ onSwitchToLogin }) {
 
     if (password.length < 6) {
       setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (!agreedToLegal) {
+      setErrorMsg('Please agree to the Terms of Service and Privacy Policy to continue.');
       return;
     }
 
@@ -246,6 +254,52 @@ export default function RegisterLabView({ onSwitchToLogin }) {
               </div>
             </div>
 
+            {/* Legal Agreement Checkbox */}
+            <label className="flex items-start gap-2.5 pt-2 text-xs text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreedToLegal}
+                onChange={(e) => setAgreedToLegal(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
+              />
+              <span className="leading-relaxed">
+                I agree to the{' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLegalTab('terms');
+                  }}
+                  className="text-sky-600 font-semibold hover:underline cursor-pointer"
+                >
+                  Terms of Service
+                </button>
+                ,{' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLegalTab('privacy');
+                  }}
+                  className="text-sky-600 font-semibold hover:underline cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
+                , and{' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLegalTab('refund');
+                  }}
+                  className="text-sky-600 font-semibold hover:underline cursor-pointer"
+                >
+                  Refund Policy
+                </button>
+                .
+              </span>
+            </label>
+
             {/* Submit */}
             <button
               type="submit"
@@ -262,7 +316,7 @@ export default function RegisterLabView({ onSwitchToLogin }) {
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium"
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Staff Sign In</span>
@@ -270,6 +324,14 @@ export default function RegisterLabView({ onSwitchToLogin }) {
           </div>
         </div>
       </div>
+
+      {legalTab && (
+        <LegalPagesView
+          initialTab={legalTab}
+          isModal
+          onClose={() => setLegalTab(null)}
+        />
+      )}
     </div>
   );
 }
