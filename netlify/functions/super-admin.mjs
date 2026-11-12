@@ -1,94 +1,78 @@
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient, getEnv, jsonResponse } from './lib/supabaseAdmin.mjs';
 
 const SUPER_ADMIN_DEMO_SLUG = 'super-admin-sandbox-demo';
 
-function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function getEnv(name) {
-  if (typeof Netlify !== 'undefined' && Netlify?.env?.get) {
-    return Netlify.env.get(name);
-  }
-  return process.env[name];
-}
-
 export default async (req) => {
-  if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  }
-
-  const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
-  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse(
-      {
-        error:
-          'Server Super Admin API requires SUPABASE_SERVICE_ROLE_KEY in Netlify Environment Variables (Functions scope).',
-        code: 'MISSING_SERVICE_ROLE',
-      },
-      503
-    );
-  }
-
-  // 1. Authenticate caller JWT
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!token) {
-    return jsonResponse({ error: '401 Unauthorized — Authentication token required' }, 401);
-  }
-
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data: authData, error: authErr } = await adminClient.auth.getUser(token);
-  if (authErr || !authData?.user) {
-    return jsonResponse({ error: '401 Unauthorized — Invalid or expired session' }, 401);
-  }
-
-  // 2. Independently verify caller role from database (NEVER trust frontend)
-  const callerId = authData.user.id;
-  const { data: callerProfile, error: profErr } = await adminClient
-    .from('user_profiles')
-    .select('id, tenant_id, email, full_name, role, is_active')
-    .eq('id', callerId)
-    .maybeSingle();
-
-  if (profErr || !callerProfile) {
-    return jsonResponse({ error: '403 Forbidden — User profile not found' }, 403);
-  }
-
-  if (!callerProfile.is_active) {
-    return jsonResponse({ error: '403 Forbidden — Account is deactivated' }, 403);
-  }
-
-  if (callerProfile.role !== 'super_admin') {
-    return jsonResponse(
-      { error: '403 Forbidden — Super Admin access required', code: 'FORBIDDEN_SUPER_ADMIN' },
-      403
-    );
-  }
-
-  let body;
   try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ error: 'Invalid JSON request body' }, 400);
-  }
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405);
+    }
 
-  const { action } = body || {};
-  if (!action) {
-    return jsonResponse({ error: 'action is required' }, 400);
-  }
+    const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
+    const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
-  // Note: Only platform-level metadata (tenants, subscriptions, staff metadata) is accessed here.
-  // Patient, clinical, and medical records are NEVER queried or exposed to Super Admin APIs.
-  try {
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse(
+        {
+          error:
+            'Server Super Admin API requires SUPABASE_SERVICE_ROLE_KEY in Netlify Environment Variables (Functions scope).',
+          code: 'MISSING_SERVICE_ROLE',
+        },
+        503
+      );
+    }
+
+    // 1. Authenticate caller JWT
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token) {
+      return jsonResponse({ error: '401 Unauthorized — Authentication token required' }, 401);
+    }
+
+    const adminClient = createAdminClient(supabaseUrl, serviceRoleKey);
+
+    const { data: authData, error: authErr } = await adminClient.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return jsonResponse({ error: '401 Unauthorized — Invalid or expired session' }, 401);
+    }
+
+    // 2. Independently verify caller role from database (NEVER trust frontend)
+    const callerId = authData.user.id;
+    const { data: callerProfile, error: profErr } = await adminClient
+      .from('user_profiles')
+      .select('id, tenant_id, email, full_name, role, is_active')
+      .eq('id', callerId)
+      .maybeSingle();
+
+    if (profErr || !callerProfile) {
+      return jsonResponse({ error: '403 Forbidden — User profile not found' }, 403);
+    }
+
+    if (!callerProfile.is_active) {
+      return jsonResponse({ error: '403 Forbidden — Account is deactivated' }, 403);
+    }
+
+    if (callerProfile.role !== 'super_admin') {
+      return jsonResponse(
+        { error: '403 Forbidden — Super Admin access required', code: 'FORBIDDEN_SUPER_ADMIN' },
+        403
+      );
+    }
+
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON request body' }, 400);
+    }
+
+    const { action } = body || {};
+    if (!action) {
+      return jsonResponse({ error: 'action is required' }, 400);
+    }
+
+    // Note: Only platform-level metadata (tenants, subscriptions, staff metadata) is accessed here.
+    // Patient, clinical, and medical records are NEVER queried or exposed to Super Admin APIs.
     if (action === 'list_tenants') {
       const [{ data: tenants, error: tErr }, { data: subs, error: sErr }, { data: settings }, { data: profiles }] =
         await Promise.all([

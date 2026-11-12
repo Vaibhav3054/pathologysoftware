@@ -1,109 +1,93 @@
-import { createClient } from '@supabase/supabase-js';
-
-function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function getEnv(name) {
-  if (typeof Netlify !== 'undefined' && Netlify?.env?.get) {
-    return Netlify.env.get(name);
-  }
-  return process.env[name];
-}
+import { createAdminClient, getEnv, jsonResponse } from './lib/supabaseAdmin.mjs';
 
 export default async (req) => {
-  if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  }
-
-  const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
-  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse(
-      {
-        error:
-          'Server staff management is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY to your Netlify Environment Variables (with Functions scope) and redeploy.',
-        code: 'MISSING_SERVICE_ROLE',
-      },
-      503
-    );
-  }
-
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!token) {
-    return jsonResponse({ error: 'Missing authentication token' }, 401);
-  }
-
-  let payload;
   try {
-    payload = await req.json();
-  } catch {
-    return jsonResponse({ error: 'Invalid JSON request body' }, 400);
-  }
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405);
+    }
 
-  const { action, targetUserId, newPassword, fullName, email, role, isActive } = payload || {};
-  if (!action || !targetUserId) {
-    return jsonResponse({ error: 'action and targetUserId are required' }, 400);
-  }
+    const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
+    const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse(
+        {
+          error:
+            'Server staff management is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY to your Netlify Environment Variables (with Functions scope) and redeploy.',
+          code: 'MISSING_SERVICE_ROLE',
+        },
+        503
+      );
+    }
 
-  // 1. Verify caller identity using JWT
-  const { data: authData, error: authErr } = await adminClient.auth.getUser(token);
-  if (authErr || !authData?.user) {
-    return jsonResponse({ error: 'Invalid or expired session' }, 401);
-  }
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token) {
+      return jsonResponse({ error: 'Missing authentication token' }, 401);
+    }
 
-  const callerId = authData.user.id;
-  const { data: callerProfile, error: callerErr } = await adminClient
-    .from('user_profiles')
-    .select('id, tenant_id, role, is_active')
-    .eq('id', callerId)
-    .maybeSingle();
+    let payload;
+    try {
+      payload = await req.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON request body' }, 400);
+    }
 
-  if (callerErr || !callerProfile || !callerProfile.is_active) {
-    return jsonResponse({ error: 'Caller account is inactive or missing' }, 403);
-  }
+    const { action, targetUserId, newPassword, fullName, email, role, isActive } = payload || {};
+    if (!action || !targetUserId) {
+      return jsonResponse({ error: 'action and targetUserId are required' }, 400);
+    }
 
-  const isCallerSuperAdmin = callerProfile.role === 'super_admin';
-  const isCallerOwner = callerProfile.role === 'lab_owner';
+    const adminClient = createAdminClient(supabaseUrl, serviceRoleKey);
 
-  if (!isCallerSuperAdmin && !isCallerOwner) {
-    return jsonResponse({ error: 'Forbidden: Only Lab Owners can manage staff accounts' }, 403);
-  }
+    // 1. Verify caller identity using JWT
+    const { data: authData, error: authErr } = await adminClient.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+    }
 
-  // 2. Fetch target profile & verify tenant boundary
-  const { data: targetProfile, error: targetErr } = await adminClient
-    .from('user_profiles')
-    .select('id, tenant_id, email, full_name, role, is_active')
-    .eq('id', targetUserId)
-    .maybeSingle();
+    const callerId = authData.user.id;
+    const { data: callerProfile, error: callerErr } = await adminClient
+      .from('user_profiles')
+      .select('id, tenant_id, role, is_active')
+      .eq('id', callerId)
+      .maybeSingle();
 
-  if (targetErr || !targetProfile) {
-    return jsonResponse({ error: 'Target staff profile not found' }, 404);
-  }
+    if (callerErr || !callerProfile || !callerProfile.is_active) {
+      return jsonResponse({ error: 'Caller account is inactive or missing' }, 403);
+    }
 
-  if (targetProfile.role === 'super_admin') {
-    return jsonResponse({ error: 'Cannot modify a Super Admin account' }, 403);
-  }
+    const isCallerSuperAdmin = callerProfile.role === 'super_admin';
+    const isCallerOwner = callerProfile.role === 'lab_owner';
 
-  if (!isCallerSuperAdmin && targetProfile.tenant_id !== callerProfile.tenant_id) {
-    return jsonResponse({ error: 'Forbidden: Cross-tenant staff modification denied' }, 403);
-  }
+    if (!isCallerSuperAdmin && !isCallerOwner) {
+      return jsonResponse({ error: 'Forbidden: Only Lab Owners can manage staff accounts' }, 403);
+    }
 
-  if (targetProfile.id === callerId && (action === 'delete_staff' || action === 'toggle_active')) {
-    return jsonResponse({ error: 'Cannot deactivate or delete your own active Owner account' }, 400);
-  }
+    // 2. Fetch target profile & verify tenant boundary
+    const { data: targetProfile, error: targetErr } = await adminClient
+      .from('user_profiles')
+      .select('id, tenant_id, email, full_name, role, is_active')
+      .eq('id', targetUserId)
+      .maybeSingle();
 
-  // 3. Execute requested administrative action
-  try {
+    if (targetErr || !targetProfile) {
+      return jsonResponse({ error: 'Target staff profile not found' }, 404);
+    }
+
+    if (targetProfile.role === 'super_admin') {
+      return jsonResponse({ error: 'Cannot modify a Super Admin account' }, 403);
+    }
+
+    if (!isCallerSuperAdmin && targetProfile.tenant_id !== callerProfile.tenant_id) {
+      return jsonResponse({ error: 'Forbidden: Cross-tenant staff modification denied' }, 403);
+    }
+
+    if (targetProfile.id === callerId && (action === 'delete_staff' || action === 'toggle_active')) {
+      return jsonResponse({ error: 'Cannot deactivate or delete your own active Owner account' }, 400);
+    }
+
+    // 3. Execute requested administrative action
     if (action === 'reset_password') {
       if (!newPassword || String(newPassword).length < 6) {
         return jsonResponse({ error: 'New password must be at least 6 characters' }, 400);
