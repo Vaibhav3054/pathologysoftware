@@ -156,20 +156,6 @@ export function AuthProvider({ children }) {
 
     const tenantId = provData?.tenant_id;
 
-    // 3. Fallback upsert user profile if not done by RPC
-    try {
-      await supabase.from('user_profiles').upsert({
-        id: userId,
-        tenant_id: tenantId,
-        email: email.trim(),
-        full_name: fullName.trim(),
-        role: 'lab_owner',
-        is_active: true,
-      });
-    } catch (e) {
-      console.warn('Profile upsert note:', e);
-    }
-
     // Refresh context if session is active
     if (authData.session) {
       await loadUserData(authData.user);

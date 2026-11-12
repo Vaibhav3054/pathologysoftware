@@ -90,6 +90,8 @@ AS $$
     false
   );
 $$;
+
+
 -- =========================================================================
 -- MIGRATION 002: Multi-Tenant Business Tables
 -- =========================================================================
@@ -242,6 +244,8 @@ CREATE TABLE IF NOT EXISTS public.report_xray_results (
 );
 
 CREATE INDEX IF NOT EXISTS idx_report_xray_report ON public.report_xray_results(report_id);
+
+
 -- =========================================================================
 -- MIGRATION 003: Row Level Security (RLS) Policies
 -- Complete Tenant Isolation at the PostgreSQL Database Layer
@@ -321,15 +325,28 @@ CREATE POLICY "Users can view staff within their own tenant"
   ON public.user_profiles
   FOR SELECT
   TO authenticated
-  USING (tenant_id = public.current_tenant_id() OR id = auth.uid());
+  USING (
+    id = auth.uid()
+    OR (tenant_id IS NOT NULL AND tenant_id = public.current_tenant_id())
+  );
 
 DROP POLICY IF EXISTS "Lab owners can manage staff profiles in their own lab" ON public.user_profiles;
 CREATE POLICY "Lab owners can manage staff profiles in their own lab"
   ON public.user_profiles
   FOR ALL
   TO authenticated
-  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner')
-  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner');
+  USING (
+    public.current_user_role() = 'lab_owner'
+    AND tenant_id IS NOT NULL
+    AND tenant_id = public.current_tenant_id()
+    AND role IN ('lab_owner', 'receptionist', 'technician')
+  )
+  WITH CHECK (
+    public.current_user_role() = 'lab_owner'
+    AND tenant_id IS NOT NULL
+    AND tenant_id = public.current_tenant_id()
+    AND role IN ('lab_owner', 'receptionist', 'technician')
+  );
 
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 CREATE POLICY "Users can update their own profile"
@@ -337,7 +354,81 @@ CREATE POLICY "Users can update their own profile"
   FOR UPDATE
   TO authenticated
   USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+  WITH CHECK (
+    id = auth.uid()
+    AND role = public.current_user_role()
+    AND tenant_id IS NOT DISTINCT FROM public.current_tenant_id()
+  );
+
+-- Defense-in-depth trigger preventing self-promotion, role escalation, or tenant hijacking
+CREATE OR REPLACE FUNCTION public.guard_user_profile_security()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_caller_role TEXT;
+  v_caller_tenant UUID;
+BEGIN
+  IF current_user IN ('postgres', 'supabase_admin', 'service_role') OR public.is_super_admin() THEN
+    RETURN NEW;
+  END IF;
+
+  v_caller_role := public.current_user_role();
+  v_caller_tenant := public.current_tenant_id();
+
+  IF TG_OP = 'INSERT' THEN
+    IF v_caller_role = 'lab_owner'
+       AND v_caller_tenant IS NOT NULL
+       AND NEW.tenant_id = v_caller_tenant
+       AND NEW.role IN ('lab_owner', 'receptionist', 'technician') THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Unauthorized user_profiles insert or privilege assignment';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id IS DISTINCT FROM OLD.id THEN
+      RAISE EXCEPTION 'Cannot change profile user id';
+    END IF;
+    IF NEW.role = 'super_admin' THEN
+      RAISE EXCEPTION 'Cannot assign super_admin role';
+    END IF;
+    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id THEN
+      RAISE EXCEPTION 'Cannot reassign tenant_id';
+    END IF;
+
+    IF v_caller_role <> 'lab_owner'
+       OR v_caller_tenant IS NULL
+       OR OLD.tenant_id IS DISTINCT FROM v_caller_tenant THEN
+      IF NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Cannot modify your own role';
+      END IF;
+      IF NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+        RAISE EXCEPTION 'Cannot modify account active status';
+      END IF;
+    ELSE
+      IF NEW.id = auth.uid() AND NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+        RAISE EXCEPTION 'Cannot modify your own active status';
+      END IF;
+      IF NEW.id = auth.uid() AND NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Cannot modify your own role';
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_user_profile_security ON public.user_profiles;
+CREATE TRIGGER trg_guard_user_profile_security
+  BEFORE INSERT OR UPDATE ON public.user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_user_profile_security();
 
 -- -------------------------------------------------------------------------
 -- 4. TENANT SETTINGS POLICIES
@@ -464,6 +555,8 @@ CREATE POLICY "Tenant staff can manage report xray results"
   ON public.report_xray_results FOR ALL TO authenticated
   USING (tenant_id = public.current_tenant_id() OR public.is_super_admin())
   WITH CHECK (tenant_id = public.current_tenant_id() OR public.is_super_admin());
+
+
 -- =========================================================================
 -- MIGRATION 004: Standard Indian Diagnostic Catalog Seeder & Sequence Generator
 -- =========================================================================
@@ -707,6 +800,8 @@ BEGIN
     (target_tenant_id, 'xray', 'X-Ray Abdomen (Erect / KUB)', 450.00, 'Radiology');
 END;
 $$;
+
+
 -- =========================================================================
 -- MIGRATION 005: Supabase Storage & Tenant Provisioning Workflows
 -- Supports: 3-Day Free Trial, Customer Paid, Super Admin Complimentary & Test/Demo Labs
@@ -758,12 +853,8 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
   );
 
--- Allow new user profile creation during self-service registration
+-- Drop any legacy permissive profile creation policy (profiles are created safely via RPC/admins)
 DROP POLICY IF EXISTS "Allow user profile creation" ON public.user_profiles;
-CREATE POLICY "Allow user profile creation"
-  ON public.user_profiles FOR INSERT
-  TO authenticated, anon
-  WITH CHECK (true);
 
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
 -- Handles all paths: 3-Day Free Trial, Normal Customer, Super Admin Complimentary, and Test/Demo
@@ -799,6 +890,23 @@ DECLARE
   v_source TEXT := p_subscription_source;
   v_notes TEXT := p_notes;
 BEGIN
+  IF p_owner_id IS NOT NULL THEN
+    IF NOT public.is_super_admin() AND auth.uid() IS NOT NULL AND p_owner_id <> auth.uid() THEN
+      RAISE EXCEPTION 'Unauthorized owner assignment';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM public.user_profiles WHERE id = p_owner_id) THEN
+      RAISE EXCEPTION 'User profile already belongs to an existing account';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM auth.users
+      WHERE id = p_owner_id AND LOWER(email) = LOWER(TRIM(p_email))
+    ) THEN
+      RAISE EXCEPTION 'Referenced auth user does not exist or email mismatch';
+    END IF;
+  END IF;
+
   -- 3-Day Automatic Free Trial handling
   IF v_source = 'trial' OR v_plan = 'trial' THEN
     v_plan := 'trial';
@@ -859,21 +967,17 @@ BEGIN
     p_admin_user_id, v_notes
   );
 
-  -- 5. Create Lab Owner Profile if owner_id provided
+  -- 5. Create Lab Owner Profile if owner_id provided (never updates/hijacks existing profile)
   IF p_owner_id IS NOT NULL THEN
     INSERT INTO public.user_profiles (id, tenant_id, email, full_name, role, is_active)
     VALUES (
-      p_owner_id, 
-      v_tenant_id, 
-      p_email, 
-      COALESCE(p_owner_name, p_name), 
-      'lab_owner', 
+      p_owner_id,
+      v_tenant_id,
+      TRIM(p_email),
+      COALESCE(p_owner_name, p_name),
+      'lab_owner',
       true
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      tenant_id = v_tenant_id,
-      role = 'lab_owner',
-      full_name = EXCLUDED.full_name;
+    );
   END IF;
 
   RETURN jsonb_build_object(

@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../services/supabase';
+import { supabase, createAuthUserWithoutSessionReplace } from '../services/supabase';
 
 export default function SettingsView({ initialTab = 'clinic' }) {
   const { tenant, profile, subscription, isLabOwner, isSuperAdmin, isTrial, getTrialDaysRemaining, upgradeSubscription } = useAuth();
@@ -176,11 +176,11 @@ export default function SettingsView({ initialTab = 'clinic' }) {
     }
 
     try {
-      // 1. Sign up user via Supabase Auth
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: staffEmail.trim(),
-        password: staffPassword,
-      });
+      // 1. Sign up staff user without replacing the Lab Owner's active session
+      const { data: authData, error: authErr } = await createAuthUserWithoutSessionReplace(
+        staffEmail,
+        staffPassword
+      );
 
       if (authErr) throw authErr;
       if (!authData.user) throw new Error('Failed to create staff login account.');

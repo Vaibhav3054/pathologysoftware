@@ -77,15 +77,28 @@ CREATE POLICY "Users can view staff within their own tenant"
   ON public.user_profiles
   FOR SELECT
   TO authenticated
-  USING (tenant_id = public.current_tenant_id() OR id = auth.uid());
+  USING (
+    id = auth.uid()
+    OR (tenant_id IS NOT NULL AND tenant_id = public.current_tenant_id())
+  );
 
 DROP POLICY IF EXISTS "Lab owners can manage staff profiles in their own lab" ON public.user_profiles;
 CREATE POLICY "Lab owners can manage staff profiles in their own lab"
   ON public.user_profiles
   FOR ALL
   TO authenticated
-  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner')
-  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner');
+  USING (
+    public.current_user_role() = 'lab_owner'
+    AND tenant_id IS NOT NULL
+    AND tenant_id = public.current_tenant_id()
+    AND role IN ('lab_owner', 'receptionist', 'technician')
+  )
+  WITH CHECK (
+    public.current_user_role() = 'lab_owner'
+    AND tenant_id IS NOT NULL
+    AND tenant_id = public.current_tenant_id()
+    AND role IN ('lab_owner', 'receptionist', 'technician')
+  );
 
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 CREATE POLICY "Users can update their own profile"
@@ -93,7 +106,81 @@ CREATE POLICY "Users can update their own profile"
   FOR UPDATE
   TO authenticated
   USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+  WITH CHECK (
+    id = auth.uid()
+    AND role = public.current_user_role()
+    AND tenant_id IS NOT DISTINCT FROM public.current_tenant_id()
+  );
+
+-- Defense-in-depth trigger preventing self-promotion, role escalation, or tenant hijacking
+CREATE OR REPLACE FUNCTION public.guard_user_profile_security()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_caller_role TEXT;
+  v_caller_tenant UUID;
+BEGIN
+  IF current_user IN ('postgres', 'supabase_admin', 'service_role') OR public.is_super_admin() THEN
+    RETURN NEW;
+  END IF;
+
+  v_caller_role := public.current_user_role();
+  v_caller_tenant := public.current_tenant_id();
+
+  IF TG_OP = 'INSERT' THEN
+    IF v_caller_role = 'lab_owner'
+       AND v_caller_tenant IS NOT NULL
+       AND NEW.tenant_id = v_caller_tenant
+       AND NEW.role IN ('lab_owner', 'receptionist', 'technician') THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Unauthorized user_profiles insert or privilege assignment';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id IS DISTINCT FROM OLD.id THEN
+      RAISE EXCEPTION 'Cannot change profile user id';
+    END IF;
+    IF NEW.role = 'super_admin' THEN
+      RAISE EXCEPTION 'Cannot assign super_admin role';
+    END IF;
+    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id THEN
+      RAISE EXCEPTION 'Cannot reassign tenant_id';
+    END IF;
+
+    IF v_caller_role <> 'lab_owner'
+       OR v_caller_tenant IS NULL
+       OR OLD.tenant_id IS DISTINCT FROM v_caller_tenant THEN
+      IF NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Cannot modify your own role';
+      END IF;
+      IF NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+        RAISE EXCEPTION 'Cannot modify account active status';
+      END IF;
+    ELSE
+      IF NEW.id = auth.uid() AND NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+        RAISE EXCEPTION 'Cannot modify your own active status';
+      END IF;
+      IF NEW.id = auth.uid() AND NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Cannot modify your own role';
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_user_profile_security ON public.user_profiles;
+CREATE TRIGGER trg_guard_user_profile_security
+  BEFORE INSERT OR UPDATE ON public.user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_user_profile_security();
 
 -- -------------------------------------------------------------------------
 -- 4. TENANT SETTINGS POLICIES

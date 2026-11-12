@@ -18,3 +18,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
 });
+
+/**
+ * Create an auth user without overwriting the currently active browser session.
+ * Used when a Lab Owner creates staff or Super Admin creates a tenant owner.
+ */
+export async function createAuthUserWithoutSessionReplace(email, password) {
+  const ephemeralClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+  return ephemeralClient.auth.signUp({
+    email: email.trim(),
+    password,
+  });
+}

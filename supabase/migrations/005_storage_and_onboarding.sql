@@ -49,12 +49,8 @@ CREATE POLICY "Tenant staff can delete assets in their own folder"
     (storage.foldername(name))[1] = public.current_tenant_id()::TEXT
   );
 
--- Allow new user profile creation during self-service registration
+-- Drop any legacy permissive profile creation policy (profiles are created safely via RPC/admins)
 DROP POLICY IF EXISTS "Allow user profile creation" ON public.user_profiles;
-CREATE POLICY "Allow user profile creation"
-  ON public.user_profiles FOR INSERT
-  TO authenticated, anon
-  WITH CHECK (true);
 
 -- 3. Comprehensive Stored Function for Provisioning New Tenants
 -- Handles all paths: 3-Day Free Trial, Normal Customer, Super Admin Complimentary, and Test/Demo
@@ -90,6 +86,23 @@ DECLARE
   v_source TEXT := p_subscription_source;
   v_notes TEXT := p_notes;
 BEGIN
+  IF p_owner_id IS NOT NULL THEN
+    IF NOT public.is_super_admin() AND auth.uid() IS NOT NULL AND p_owner_id <> auth.uid() THEN
+      RAISE EXCEPTION 'Unauthorized owner assignment';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM public.user_profiles WHERE id = p_owner_id) THEN
+      RAISE EXCEPTION 'User profile already belongs to an existing account';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM auth.users
+      WHERE id = p_owner_id AND LOWER(email) = LOWER(TRIM(p_email))
+    ) THEN
+      RAISE EXCEPTION 'Referenced auth user does not exist or email mismatch';
+    END IF;
+  END IF;
+
   -- 3-Day Automatic Free Trial handling
   IF v_source = 'trial' OR v_plan = 'trial' THEN
     v_plan := 'trial';
@@ -150,21 +163,17 @@ BEGIN
     p_admin_user_id, v_notes
   );
 
-  -- 5. Create Lab Owner Profile if owner_id provided
+  -- 5. Create Lab Owner Profile if owner_id provided (never updates/hijacks existing profile)
   IF p_owner_id IS NOT NULL THEN
     INSERT INTO public.user_profiles (id, tenant_id, email, full_name, role, is_active)
     VALUES (
-      p_owner_id, 
-      v_tenant_id, 
-      p_email, 
-      COALESCE(p_owner_name, p_name), 
-      'lab_owner', 
+      p_owner_id,
+      v_tenant_id,
+      TRIM(p_email),
+      COALESCE(p_owner_name, p_name),
+      'lab_owner',
       true
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      tenant_id = v_tenant_id,
-      role = 'lab_owner',
-      full_name = EXCLUDED.full_name;
+    );
   END IF;
 
   RETURN jsonb_build_object(

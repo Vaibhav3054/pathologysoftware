@@ -21,6 +21,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { api } from '../services/api';
+import { createAuthUserWithoutSessionReplace } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 
 export default function SuperAdminPortal() {
@@ -106,11 +107,11 @@ export default function SuperAdminPortal() {
 
       const tenantId = provRes.tenant_id;
 
-      // 2. Create the Lab Owner Auth Account
-      const { data: authData, error: authErr } = await api.supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-      });
+      // 2. Create the Lab Owner Auth Account without replacing Super Admin's session
+      const { data: authData, error: authErr } = await createAuthUserWithoutSessionReplace(
+        email,
+        password
+      );
 
       if (authErr) {
         console.warn('Note: Auth signup notice:', authErr.message);
