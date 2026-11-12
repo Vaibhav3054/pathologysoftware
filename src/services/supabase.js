@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// In development, proxy through Vite to eliminate browser adblocker / client fetch blocks
+// Proxy through Vite (dev) or Netlify /supabase-api rewrite (prod) to prevent adblocker/ISP blocks
 const isLocalhost = typeof window !== 'undefined' && 
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const useProxy = isLocalhost || import.meta.env.VITE_SUPABASE_PROXY === 'true';
 
-const supabaseUrl = isLocalhost 
+const supabaseUrl = (useProxy && typeof window !== 'undefined')
   ? `${window.location.origin}/supabase-api`
   : (import.meta.env.VITE_SUPABASE_URL || 'https://zgudwlzlmroxkrkbmqxl.supabase.co');
 

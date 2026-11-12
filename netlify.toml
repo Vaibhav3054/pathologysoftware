@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_SUPABASE_PROXY = "true"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_PROXY"
+
+# Same-origin proxy for Supabase REST/Auth/Storage to prevent adblocker or ISP blocks
+[[redirects]]
+  from = "/supabase-api/*"
+  to = "https://zgudwlzlmroxkrkbmqxl.supabase.co/:splat"
+  status = 200
+  force = true
+
+# SPA fallback rewrite
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
