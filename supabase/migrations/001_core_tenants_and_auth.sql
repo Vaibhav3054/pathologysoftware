@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   plan_type TEXT NOT NULL DEFAULT 'trial' CHECK (plan_type IN ('trial', 'monthly', 'yearly', 'custom', 'unlimited')),
   subscription_source TEXT NOT NULL DEFAULT 'trial' CHECK (subscription_source IN ('trial', 'payment', 'super_admin', 'complimentary', 'test_demo')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'trial', 'expired', 'cancelled', 'grace_period')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'trial', 'paused', 'expired', 'cancelled', 'grace_period')),
   billing_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ, -- NULL when is_unlimited is true
@@ -112,31 +112,28 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT
-    public.is_super_admin()
-    OR (
-      p_tenant_id IS NOT NULL
-      AND (auth.uid() IS NULL OR public.is_active_user())
-      AND EXISTS (
-        SELECT 1
-        FROM public.tenants t
-        WHERE t.id = p_tenant_id
-          AND t.status = 'active'
-          AND EXISTS (
-            SELECT 1
-            FROM (
-              SELECT s.status, s.is_unlimited, s.expires_at
-              FROM public.tenant_subscriptions s
-              WHERE s.tenant_id = t.id
-              ORDER BY s.created_at DESC
-              LIMIT 1
-            ) latest_sub
-            WHERE latest_sub.status = 'active'
-              AND (
-                latest_sub.is_unlimited = true
-                OR latest_sub.expires_at IS NULL
-                OR latest_sub.expires_at > now()
-              )
-          )
-      )
+    p_tenant_id IS NOT NULL
+    AND (auth.uid() IS NULL OR public.is_active_user())
+    AND EXISTS (
+      SELECT 1
+      FROM public.tenants t
+      WHERE t.id = p_tenant_id
+        AND t.status = 'active'
+        AND EXISTS (
+          SELECT 1
+          FROM (
+            SELECT s.status, s.is_unlimited, s.expires_at
+            FROM public.tenant_subscriptions s
+            WHERE s.tenant_id = t.id
+            ORDER BY s.created_at DESC
+            LIMIT 1
+          ) latest_sub
+          WHERE latest_sub.status = 'active'
+            AND (
+              latest_sub.is_unlimited = true
+              OR latest_sub.expires_at IS NULL
+              OR latest_sub.expires_at > now()
+            )
+        )
     );
 $$;

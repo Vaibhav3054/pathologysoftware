@@ -16,7 +16,7 @@ DECLARE
   v_next INT;
   v_result TEXT;
 BEGIN
-  IF current_user NOT IN ('postgres', 'supabase_admin', 'service_role') AND NOT public.is_super_admin() THEN
+  IF current_user NOT IN ('postgres', 'supabase_admin', 'service_role') THEN
     IF target_tenant_id IS DISTINCT FROM public.current_tenant_id() THEN
       RAISE EXCEPTION 'Unauthorized tenant report number access';
     END IF;

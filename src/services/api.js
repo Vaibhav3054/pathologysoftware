@@ -755,62 +755,76 @@ export const api = {
   },
 
   // -----------------------------------------------------------------------
-  // SUPER ADMIN & TENANT MANAGEMENT METHODS
+  // SERVER-VERIFIED NETLIFY FUNCTION HELPERS & SUPER ADMIN API
   // -----------------------------------------------------------------------
-  async getAllTenants() {
-    const { data, error } = await supabase
-      .from('tenants')
-      .select(`
-        *,
-        tenant_subscriptions (*),
-        tenant_settings (clinic_name, phone, email)
-      `)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
-  },
+  async callProtectedFunction(functionName, bodyPayload) {
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !sessionData?.session?.access_token) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
 
-  async provisionTenant({
-    name,
-    slug,
-    phone,
-    email,
-    address,
-    plan_type = 'monthly',
-    subscription_source = 'payment',
-    duration_days = 30,
-    is_unlimited = false,
-    is_test_lab = false,
-    notes = '',
-    adminUserId = null,
-  }) {
-    const { data, error } = await supabase.rpc('provision_new_tenant', {
-      p_name: name,
-      p_slug: slug,
-      p_phone: phone || '',
-      p_email: email || '',
-      p_address: address || '',
-      p_plan_type: plan_type,
-      p_subscription_source: subscription_source,
-      p_duration_days: duration_days,
-      p_is_unlimited: is_unlimited,
-      p_is_test_lab: is_test_lab,
-      p_notes: notes,
-      p_admin_user_id: adminUserId,
+    const res = await fetch(`/.netlify/functions/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify(bodyPayload),
     });
-    if (error) throw error;
-    return data;
+
+    let payload = {};
+    try {
+      payload = await res.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!res.ok) {
+      const err = new Error(payload?.error || `Request failed (${res.status})`);
+      err.status = res.status;
+      err.code = payload?.code;
+      throw err;
+    }
+
+    return payload;
   },
 
-  async updateTenantStatus(tenantId, status) {
-    const { data, error } = await supabase
-      .from('tenants')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', tenantId)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+  async superAdminAction(action, params = {}) {
+    return this.callProtectedFunction('super-admin', { action, ...params });
+  },
+
+  async getAllTenants() {
+    const res = await this.superAdminAction('list_tenants');
+    return res.tenants || [];
+  },
+
+  async getSuperAdminTenantDetails(tenantId) {
+    const res = await this.superAdminAction('get_tenant_details', { tenantId });
+    return res.tenant;
+  },
+
+  async createLabAsSuperAdmin(params) {
+    return this.superAdminAction('create_tenant', params);
+  },
+
+  async pauseTenantSubscription(tenantId, reason = '') {
+    return this.superAdminAction('pause_subscription', { tenantId, reason });
+  },
+
+  async resumeTenantSubscription(tenantId) {
+    return this.superAdminAction('resume_subscription', { tenantId });
+  },
+
+  async endTenantSubscription(tenantId) {
+    return this.superAdminAction('end_subscription', { tenantId });
+  },
+
+  async grantComplimentaryAccess({ tenantId, days, isUnlimited = false, notes = '' }) {
+    return this.superAdminAction('grant_complimentary', { tenantId, days, isUnlimited, notes });
+  },
+
+  async deleteTenantPermanently(tenantId, confirmSlug) {
+    return this.superAdminAction('delete_tenant', { tenantId, confirmSlug });
   },
 
   async activatePaidSubscription({ tenantId = null, planType = 'monthly', notes = 'Online Subscription Activation' }) {
@@ -820,20 +834,6 @@ export const api = {
       p_plan_type: planType,
       p_payment_notes: notes,
     });
-    if (error) throw error;
-    return data;
-  },
-
-  async updateTenantSubscription(subscriptionId, updates) {
-    const { data, error } = await supabase
-      .from('tenant_subscriptions')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', subscriptionId)
-      .select()
-      .single();
     if (error) throw error;
     return data;
   },
@@ -849,18 +849,8 @@ export const api = {
   },
 
   async manageStaffAccount({ action, targetUserId, newPassword, fullName, email, role, isActive }) {
-    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-    if (sessionErr || !sessionData?.session?.access_token) {
-      throw new Error('Your session has expired. Please sign in again.');
-    }
-
-    const res = await fetch('/.netlify/functions/manage-staff', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-      body: JSON.stringify({
+    try {
+      return await this.callProtectedFunction('manage-staff', {
         action,
         targetUserId,
         newPassword,
@@ -868,19 +858,10 @@ export const api = {
         email,
         role,
         isActive,
-      }),
-    });
-
-    let payload = {};
-    try {
-      payload = await res.json();
-    } catch {
-      payload = {};
-    }
-
-    if (!res.ok) {
+      });
+    } catch (err) {
       // Fallback for toggle_active if SUPABASE_SERVICE_ROLE_KEY is not configured yet
-      if (payload?.code === 'MISSING_SERVICE_ROLE' && action === 'toggle_active' && typeof isActive === 'boolean') {
+      if (err?.code === 'MISSING_SERVICE_ROLE' && action === 'toggle_active' && typeof isActive === 'boolean') {
         const { error: updateErr } = await supabase
           .from('user_profiles')
           .update({ is_active: isActive, updated_at: new Date().toISOString() })
@@ -889,9 +870,7 @@ export const api = {
           return { success: true, is_active: isActive, fallback: true };
         }
       }
-      throw new Error(payload?.error || `Staff management request failed (${res.status})`);
+      throw err;
     }
-
-    return payload;
   },
 };

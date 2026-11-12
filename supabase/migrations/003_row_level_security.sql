@@ -200,15 +200,15 @@ CREATE POLICY "Tenant staff can view lab settings"
   ON public.tenant_settings
   FOR SELECT
   TO authenticated
-  USING (tenant_id = public.current_tenant_id() OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id());
 
 DROP POLICY IF EXISTS "Lab owner can update lab settings" ON public.tenant_settings;
 CREATE POLICY "Lab owner can update lab settings"
   ON public.tenant_settings
   FOR ALL
   TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 5. DOCTORS POLICIES
@@ -216,14 +216,14 @@ CREATE POLICY "Lab owner can update lab settings"
 DROP POLICY IF EXISTS "Tenant staff can view doctors" ON public.doctors;
 CREATE POLICY "Tenant staff can view doctors"
   ON public.doctors FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can manage doctors" ON public.doctors;
 DROP POLICY IF EXISTS "Lab owner can manage doctors" ON public.doctors;
 CREATE POLICY "Lab owner can manage doctors"
   ON public.doctors FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 6. TESTS & TEST PARAMETERS POLICIES
@@ -231,24 +231,24 @@ CREATE POLICY "Lab owner can manage doctors"
 DROP POLICY IF EXISTS "Tenant staff can view tests" ON public.tests;
 CREATE POLICY "Tenant staff can view tests"
   ON public.tests FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Lab owner can manage tests" ON public.tests;
 CREATE POLICY "Lab owner can manage tests"
   ON public.tests FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can view test parameters" ON public.test_parameters;
 CREATE POLICY "Tenant staff can view test parameters"
   ON public.test_parameters FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Lab owner can manage test parameters" ON public.test_parameters;
 CREATE POLICY "Lab owner can manage test parameters"
   ON public.test_parameters FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() = 'lab_owner' AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 7. PATIENTS POLICIES
@@ -256,13 +256,13 @@ CREATE POLICY "Lab owner can manage test parameters"
 DROP POLICY IF EXISTS "Tenant staff can view patients" ON public.patients;
 CREATE POLICY "Tenant staff can view patients"
   ON public.patients FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can manage patients" ON public.patients;
 CREATE POLICY "Tenant staff can manage patients"
   ON public.patients FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 8. REPORTS POLICIES
@@ -270,18 +270,18 @@ CREATE POLICY "Tenant staff can manage patients"
 DROP POLICY IF EXISTS "Tenant staff can view reports" ON public.reports;
 CREATE POLICY "Tenant staff can view reports"
   ON public.reports FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can create reports" ON public.reports;
 CREATE POLICY "Tenant staff can create reports"
   ON public.reports FOR INSERT TO authenticated
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can update reports" ON public.reports;
 CREATE POLICY "Tenant staff can update reports"
   ON public.reports FOR UPDATE TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 9. REPORT SERVICES, TEST RESULTS, X-RAY RESULTS POLICIES
@@ -289,35 +289,35 @@ CREATE POLICY "Tenant staff can update reports"
 DROP POLICY IF EXISTS "Tenant staff can view report services" ON public.report_services;
 CREATE POLICY "Tenant staff can view report services"
   ON public.report_services FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can manage report services" ON public.report_services;
 CREATE POLICY "Tenant staff can manage report services"
   ON public.report_services FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can view report test results" ON public.report_test_results;
 CREATE POLICY "Tenant staff can view report test results"
   ON public.report_test_results FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can manage report test results" ON public.report_test_results;
 CREATE POLICY "Tenant staff can manage report test results"
   ON public.report_test_results FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can view report xray results" ON public.report_xray_results;
 CREATE POLICY "Tenant staff can view report xray results"
   ON public.report_xray_results FOR SELECT TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.has_active_subscription(tenant_id));
 
 DROP POLICY IF EXISTS "Tenant staff can manage report xray results" ON public.report_xray_results;
 CREATE POLICY "Tenant staff can manage report xray results"
   ON public.report_xray_results FOR ALL TO authenticated
-  USING ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin())
-  WITH CHECK ((tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist') AND public.has_active_subscription(tenant_id)) OR public.is_super_admin());
+  USING (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id))
+  WITH CHECK (tenant_id = public.current_tenant_id() AND public.current_user_role() IN ('lab_owner', 'receptionist', 'super_admin') AND public.has_active_subscription(tenant_id));
 
 -- -------------------------------------------------------------------------
 -- 10. IMMUTABLE AUDIT LOGS (AUTOMATIC POSTGRESQL TRIGGERS)
@@ -342,17 +342,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_table_time ON public.audit_logs(table_
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Super Admin can view all audit logs" ON public.audit_logs;
-CREATE POLICY "Super Admin can view all audit logs"
-  ON public.audit_logs FOR SELECT TO authenticated
-  USING (public.is_super_admin());
-
 DROP POLICY IF EXISTS "Lab owner can view own tenant audit logs" ON public.audit_logs;
 CREATE POLICY "Lab owner can view own tenant audit logs"
   ON public.audit_logs FOR SELECT TO authenticated
   USING (
     tenant_id IS NOT NULL
     AND tenant_id = public.current_tenant_id()
-    AND public.current_user_role() = 'lab_owner'
+    AND public.current_user_role() IN ('lab_owner', 'super_admin')
   );
 
 CREATE OR REPLACE FUNCTION public.record_audit_log()

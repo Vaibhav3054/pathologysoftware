@@ -107,6 +107,11 @@ export function AuthProvider({ children }) {
           .limit(1)
           .maybeSingle();
         setSubscription(subData);
+      } else {
+        setTenant(null);
+        setTenantSettings(null);
+        setSubscription(null);
+        setApiTenantId(null);
       }
     } catch (err) {
       console.error('loadUserData error:', err);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import NewEntry from './components/NewEntry';
@@ -31,6 +31,7 @@ import {
   Eye,
   EyeOff,
   X,
+  Crown,
 } from 'lucide-react';
 
 function getInitialRouteFromLocation() {
@@ -39,8 +40,11 @@ function getInitialRouteFromLocation() {
   if (path === 'terms') return { view: 'legal', legalTab: 'terms' };
   if (path === 'privacy') return { view: 'legal', legalTab: 'privacy' };
   if (path === 'refund' || path === 'refunds') return { view: 'legal', legalTab: 'refund' };
+  if (path === 'super-admin' || path === 'super-admin/dashboard') {
+    return { view: 'super-admin', legalTab: 'terms' };
+  }
   if (
-    ['dashboard', 'new-entry', 'patients', 'reports', 'tests', 'doctors', 'settings', 'backup', 'super-admin', 'legal'].includes(path)
+    ['dashboard', 'new-entry', 'patients', 'reports', 'tests', 'doctors', 'settings', 'backup', 'legal'].includes(path)
   ) {
     return { view: path, legalTab: 'terms' };
   }
@@ -90,12 +94,21 @@ export default function App() {
   const [pwSuccess, setPwSuccess] = useState('');
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
-  // Set default landing view for Super Admin when no URL route override was specified
+  const superAdminAutoRoutedRef = useRef(false);
+
+  // Land on Super Admin Dashboard by default on initial login (without blocking Back to Lab Software)
   useEffect(() => {
-    if (isSuperAdmin && !tenant && initialRoute.view === 'dashboard') {
-      setCurrentView('super-admin');
+    if (!user) {
+      superAdminAutoRoutedRef.current = false;
+      return;
     }
-  }, [isSuperAdmin, tenant]);
+    if (isSuperAdmin && !superAdminAutoRoutedRef.current) {
+      superAdminAutoRoutedRef.current = true;
+      if (initialRoute.view === 'dashboard') {
+        setCurrentView('super-admin');
+      }
+    }
+  }, [user, isSuperAdmin]);
 
   // Loading Screen
   if (loading) {
@@ -402,6 +415,143 @@ export default function App() {
     setCurrentView('new-entry');
   };
 
+  const openChangePasswordModal = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setPwError('');
+    setPwSuccess('');
+    setShowChangePasswordModal(true);
+  };
+
+  const renderChangePasswordModal = () => {
+    if (!showChangePasswordModal) return null;
+    return (
+      <div className="no-print fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-sky-400" />
+              <h3 className="font-bold text-sm">Change My Password</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowChangePasswordModal(false)}
+              className="text-slate-400 hover:text-white p-1 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setPwError('');
+              setPwSuccess('');
+              if (newPassword.length < 6) {
+                setPwError('Password must be at least 6 characters.');
+                return;
+              }
+              if (newPassword !== confirmPassword) {
+                setPwError('Passwords do not match.');
+                return;
+              }
+              try {
+                setPwUpdating(true);
+                await updateOwnPassword(newPassword);
+                setPwSuccess('Your password has been updated!');
+                setNewPassword('');
+                setConfirmPassword('');
+                setTimeout(() => setShowChangePasswordModal(false), 1200);
+              } catch (err) {
+                setPwError(err.message || 'Failed to update password.');
+              } finally {
+                setPwUpdating(false);
+              }
+            }}
+            className="p-6 space-y-4 text-xs"
+          >
+            {pwError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">{pwError}</div>
+            )}
+            {pwSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700">{pwSuccess}</div>
+            )}
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">New Password</label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  required
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Confirm New Password</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  required
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={pwUpdating}
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold shadow-sm cursor-pointer"
+              >
+                {pwUpdating ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Completely Separate Super Admin SaaS Dashboard UI (no Laboratory Sidebar)
+  if (currentView === 'super-admin' && isSuperAdmin) {
+    return (
+      <>
+        <SuperAdminPortal
+          onBackToLab={() => setCurrentView('dashboard')}
+          onOpenChangePassword={openChangePasswordModal}
+        />
+        {renderChangePasswordModal()}
+      </>
+    );
+  }
+
   const labDisplayName = tenantSettings?.clinic_name || tenant?.name || 'DIAGNOSTIC CENTRE';
 
   return (
@@ -431,7 +581,7 @@ export default function App() {
               </div>
             )}
             <div className="min-w-0">
-              <span className="font-bold text-xs tracking-tight text-white block truncate max-w-[170px] sm:max-w-[260px]">
+              <span className="font-bold text-xs tracking-tight text-white block truncate max-w-[150px] sm:max-w-[240px]">
                 {labDisplayName}
               </span>
               {isTrial && (
@@ -443,17 +593,29 @@ export default function App() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setPrefilledPatient(null);
-            setCurrentView('new-entry');
-          }}
-          className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 shrink-0"
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>New Entry</span>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => setCurrentView('super-admin')}
+              className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shadow-sm transition shrink-0"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Super Admin</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setPrefilledPatient(null);
+              setCurrentView('new-entry');
+            }}
+            className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 shrink-0"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>New Entry</span>
+          </button>
+        </div>
       </header>
 
       {/* Sidebar (Desktop fixed + Mobile slide-out drawer) */}
@@ -461,16 +623,10 @@ export default function App() {
         currentView={currentView} 
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        onOpenChangePassword={() => {
-          setNewPassword('');
-          setConfirmPassword('');
-          setPwError('');
-          setPwSuccess('');
-          setShowChangePasswordModal(true);
-        }}
+        onOpenChangePassword={openChangePasswordModal}
         setCurrentView={(view, extra) => {
           if (!canAccessView(view)) {
-            setCurrentView(view); // Renders explicit Access Denied screen
+            setCurrentView(view); // Renders explicit Access Denied / 403 screen
             return;
           }
           if (view !== 'new-entry') {
@@ -488,14 +644,52 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 min-w-0 lg:h-screen lg:overflow-y-auto bg-slate-100/90 p-3.5 sm:p-6 lg:p-8 print:p-0 print:m-0 print:overflow-visible print:h-auto">
+        {isSuperAdmin && canAccessView(currentView) && (
+          <div className="no-print mb-5 bg-slate-900 text-white rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2.5 text-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              {tenant ? (
+                <span>
+                  <strong className="text-amber-300">Isolated Demo Sandbox:</strong> You are operating inside{' '}
+                  <strong className="text-white">{tenant.name}</strong>. Customer laboratories remain strictly private.
+                </span>
+              ) : (
+                <span className="text-amber-300">
+                  Run migration <code>009_super_admin_backend_and_isolation.sql</code> in Supabase to initialize your isolated Super Admin Test/Demo Lab.
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentView('super-admin')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition cursor-pointer shrink-0"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span>Super Admin Dashboard</span>
+            </button>
+          </div>
+        )}
+
         {!canAccessView(currentView) ? (
           <div className="max-w-lg mx-auto mt-10 bg-white rounded-3xl border border-rose-200 shadow-lg p-6 sm:p-8 text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
               <ShieldAlert className="w-7 h-7" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900">Access Denied</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              {currentView === 'super-admin'
+                ? '403 Forbidden — Super Admin access required'
+                : 'Access Denied'}
+            </h2>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Your current role (<span className="font-semibold uppercase text-slate-700">{profile?.role || 'staff'}</span>) does not have permission to access this administrative module. Only the Laboratory Owner can modify master catalog, doctors, user accounts, and system settings.
+              {currentView === 'super-admin' ? (
+                <>
+                  Your current role (<span className="font-semibold uppercase text-slate-700">{profile?.role || 'staff'}</span>) is not authorized to access Super Admin routes or platform APIs.
+                </>
+              ) : (
+                <>
+                  Your current role (<span className="font-semibold uppercase text-slate-700">{profile?.role || 'staff'}</span>) does not have permission to access this administrative module. Only the Laboratory Owner can modify master catalog, doctors, user accounts, and system settings.
+                </>
+              )}
             </p>
             <button
               type="button"
@@ -507,10 +701,6 @@ export default function App() {
           </div>
         ) : (
           <>
-            {currentView === 'super-admin' && isSuperAdmin && (
-              <SuperAdminPortal />
-            )}
-
             {currentView === 'dashboard' && (
               <Dashboard 
                 setCurrentView={(view) => {
@@ -578,126 +768,14 @@ export default function App() {
               <LegalPagesView
                 key={legalInitialTab}
                 initialTab={legalInitialTab}
-                onClose={() => setCurrentView(isSuperAdmin && !tenant ? 'super-admin' : 'dashboard')}
+                onClose={() => setCurrentView('dashboard')}
               />
             )}
           </>
         )}
       </main>
 
-      {/* Change Own Password Modal */}
-      {showChangePasswordModal && (
-        <div className="no-print fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-sky-400" />
-                <h3 className="font-bold text-sm">Change My Password</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowChangePasswordModal(false)}
-                className="text-slate-400 hover:text-white p-1 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setPwError('');
-                setPwSuccess('');
-                if (newPassword.length < 6) {
-                  setPwError('Password must be at least 6 characters.');
-                  return;
-                }
-                if (newPassword !== confirmPassword) {
-                  setPwError('Passwords do not match.');
-                  return;
-                }
-                try {
-                  setPwUpdating(true);
-                  await updateOwnPassword(newPassword);
-                  setPwSuccess('Your password has been updated!');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setTimeout(() => setShowChangePasswordModal(false), 1200);
-                } catch (err) {
-                  setPwError(err.message || 'Failed to update password.');
-                } finally {
-                  setPwUpdating(false);
-                }
-              }}
-              className="p-6 space-y-4 text-xs"
-            >
-              {pwError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">{pwError}</div>
-              )}
-              {pwSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700">{pwSuccess}</div>
-              )}
-              <div>
-                <label className="block font-semibold text-slate-600 mb-1">New Password</label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min 6 characters"
-                    required
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    tabIndex={-1}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 mb-1">Confirm New Password</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    required
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    tabIndex={-1}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowChangePasswordModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={pwUpdating}
-                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold shadow-sm cursor-pointer"
-                >
-                  {pwUpdating ? 'Updating...' : 'Update Password'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {renderChangePasswordModal()}
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
   if (isSuperAdmin) {
     menuItems.unshift({
       id: 'super-admin',
-      label: 'SaaS Admin Portal',
+      label: 'Super Admin Dashboard',
       icon: Crown,
       superBadge: true,
     });
