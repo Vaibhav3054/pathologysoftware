@@ -39,7 +39,7 @@ export default function LoginView({ onSwitchToRegister }) {
         setLoading(true);
         await requestPasswordReset(email);
         setSuccessMsg(
-          `Password reset link sent to ${email.trim()}. Check your inbox (and spam folder) to set a new password.`
+          `If an active account exists for ${email.trim()}, a password reset link has been sent. Please check your inbox (and spam folder).`
         );
       } catch (err) {
         console.error('Reset request error:', err);
