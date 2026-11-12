@@ -713,10 +713,11 @@ export default function SuperAdminPortal({ onBackToLab, onOpenChangePassword }) 
                                       setDeleteTenant(t);
                                       setDeleteConfirmSlug('');
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-rose-100/80 hover:bg-rose-200 text-rose-800 rounded-lg text-[11px] font-semibold transition cursor-pointer"
                                     title="Permanently Delete Laboratory"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Delete</span>
                                   </button>
                                 </>
                               )}
