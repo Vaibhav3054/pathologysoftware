@@ -378,6 +378,12 @@ BEGIN
     v_record_id := v_payload->>'id';
   END IF;
 
+  IF TG_OP = 'DELETE' AND v_tenant_id IS NOT NULL THEN
+    IF TG_TABLE_NAME = 'tenants' OR NOT EXISTS (SELECT 1 FROM public.tenants WHERE id = v_tenant_id) THEN
+      v_tenant_id := NULL;
+    END IF;
+  END IF;
+
   IF v_actor_id IS NOT NULL THEN
     SELECT email, role
     INTO v_actor_email, v_actor_role

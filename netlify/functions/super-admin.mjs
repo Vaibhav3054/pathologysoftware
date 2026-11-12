@@ -451,7 +451,30 @@ export default async (req) => {
 
       // Delete tenant (cascades business tables, subscriptions, settings, and user_profiles)
       const { error: delTenantErr } = await adminClient.from('tenants').delete().eq('id', tenantId);
-      if (delTenantErr) throw delTenantErr;
+      if (delTenantErr) {
+        if (String(delTenantErr.message || '').includes('audit_logs_tenant_id_fkey')) {
+          return jsonResponse(
+            {
+              error:
+                'Database audit trigger needs migration 010 (audit_logs_tenant_id_fkey). Please run supabase/migrations/010_fix_audit_logs_on_tenant_delete.sql in Supabase SQL Editor and retry.',
+              code: 'MIGRATION_010_REQUIRED',
+            },
+            409
+          );
+        }
+        throw delTenantErr;
+      }
+
+      // Best-effort cleanup of uploaded lab branding assets in storage
+      try {
+        const { data: files } = await adminClient.storage.from('lab-assets').list(tenantId);
+        if (files && files.length > 0) {
+          const paths = files.map((f) => `${tenantId}/${f.name}`);
+          await adminClient.storage.from('lab-assets').remove(paths);
+        }
+      } catch (storageErr) {
+        console.warn('Non-fatal storage cleanup error during tenant delete:', storageErr?.message);
+      }
 
       // Remove auth accounts for that deleted laboratory
       for (const uid of userIdsToDelete) {
