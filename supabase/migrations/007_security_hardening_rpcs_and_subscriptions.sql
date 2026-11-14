@@ -95,8 +95,9 @@ BEGIN
       RAISE EXCEPTION 'Unauthorized owner assignment';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM public.user_profiles WHERE id = p_owner_id) THEN
-      RAISE EXCEPTION 'User profile already belongs to an existing account';
+    -- Only block if the user profile already belongs to another ACTIVE laboratory
+    IF EXISTS (SELECT 1 FROM public.user_profiles WHERE id = p_owner_id AND tenant_id IS NOT NULL) THEN
+      RAISE EXCEPTION 'User profile already belongs to an existing laboratory';
     END IF;
 
     IF NOT EXISTS (
@@ -167,7 +168,7 @@ BEGIN
     v_admin_user_id, v_notes
   );
 
-  -- 5. Create Lab Owner Profile
+  -- 5. Create or Update Lab Owner Profile
   IF p_owner_id IS NOT NULL THEN
     INSERT INTO public.user_profiles (id, tenant_id, email, full_name, role, is_active)
     VALUES (
@@ -177,7 +178,13 @@ BEGIN
       COALESCE(p_owner_name, p_name),
       'lab_owner',
       true
-    );
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET tenant_id = v_tenant_id,
+        role = 'lab_owner',
+        is_active = true,
+        full_name = COALESCE(EXCLUDED.full_name, public.user_profiles.full_name),
+        updated_at = now();
   END IF;
 
   RETURN jsonb_build_object(

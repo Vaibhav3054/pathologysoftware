@@ -13,6 +13,7 @@ import BackupView from './components/BackupView';
 import SuperAdminPortal from './components/SuperAdminPortal';
 import LoginView from './components/LoginView';
 import RegisterLabView from './components/RegisterLabView';
+import PendingLabSetupView from './components/PendingLabSetupView';
 import LegalPagesView from './components/LegalPagesView';
 import { useAuth } from './context/AuthContext';
 import {
@@ -251,6 +252,11 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  // Missing Laboratory Tenant Guard (e.g. Incomplete onboarding or orphaned user)
+  if (!isSuperAdmin && (!tenant || !profile?.tenant_id)) {
+    return <PendingLabSetupView />;
   }
 
   // Subscription Expiry / Trial Ended Guard (Super Admin can always bypass)

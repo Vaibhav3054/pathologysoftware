@@ -65,7 +65,7 @@ export function AuthProvider({ children }) {
       setLoading(true);
 
       // 1. Fetch user profile
-      const { data: userProfile, error: profErr } = await supabase
+      let { data: userProfile, error: profErr } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', authUser.id)
@@ -73,6 +73,46 @@ export function AuthProvider({ children }) {
 
       if (profErr) {
         console.error('Error fetching user profile:', profErr);
+      }
+
+      // Auto-recovery: If user has no laboratory tenant but registration metadata exists, auto-provision 3-day trial
+      if ((!userProfile || !userProfile.tenant_id) && userProfile?.role !== 'super_admin') {
+        const meta = authUser.user_metadata || {};
+        if (meta.lab_name) {
+          try {
+            const slug = meta.lab_name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
+            const { data: provRes, error: provErr } = await supabase.rpc('provision_new_tenant', {
+              p_name: meta.lab_name.trim(),
+              p_slug: slug,
+              p_phone: meta.lab_phone || '',
+              p_email: authUser.email.trim(),
+              p_address: meta.lab_address || '',
+              p_plan_type: 'trial',
+              p_subscription_source: 'trial',
+              p_duration_days: 3,
+              p_is_unlimited: false,
+              p_is_test_lab: false,
+              p_notes: '3-Day Automatic Free Trial (Auto-Recovered)',
+              p_admin_user_id: null,
+              p_owner_id: authUser.id,
+              p_owner_name: meta.full_name || 'Lab Owner',
+            });
+            if (provRes?.tenant_id) {
+              const { data: refreshedProfile } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('id', authUser.id)
+                .maybeSingle();
+              if (refreshedProfile) {
+                userProfile = refreshedProfile;
+              }
+            } else if (provErr) {
+              console.warn('Auto-provisioning check error:', provErr);
+            }
+          } catch (autoErr) {
+            console.warn('Auto-provisioning fallback failed:', autoErr);
+          }
+        }
       }
 
       setProfile(userProfile);
@@ -139,10 +179,18 @@ export function AuthProvider({ children }) {
     labPhone,
     labAddress,
   }) => {
-    // 1. Create Supabase Auth User
+    // 1. Create Supabase Auth User with metadata for recovery
     const { data: authData, error: authErr } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          lab_name: labName.trim(),
+          lab_phone: labPhone || '',
+          lab_address: labAddress || '',
+        },
+      },
     });
     if (authErr) throw authErr;
     if (!authData.user) throw new Error('Failed to create account.');
@@ -187,6 +235,40 @@ export function AuthProvider({ children }) {
       hasSession: false, 
       email: email.trim() 
     };
+  };
+
+  // Launch trial laboratory for a registered user whose tenant was pending/orphaned
+  const provisionPendingLab = async ({ labName, fullName, phone, address }) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUser = sessionData?.session?.user || user;
+    if (!currentUser) throw new Error('You must be signed in to launch your laboratory.');
+
+    const slug = labName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    const { data: provData, error: provErr } = await supabase.rpc('provision_new_tenant', {
+      p_name: labName.trim(),
+      p_slug: slug,
+      p_phone: phone || '',
+      p_email: currentUser.email.trim(),
+      p_address: address || '',
+      p_plan_type: 'trial',
+      p_subscription_source: 'trial',
+      p_duration_days: 3,
+      p_is_unlimited: false,
+      p_is_test_lab: false,
+      p_notes: '3-Day Automatic Free Trial',
+      p_admin_user_id: null,
+      p_owner_id: currentUser.id,
+      p_owner_name: fullName?.trim() || 'Laboratory Owner',
+    });
+
+    if (provErr) {
+      console.error('provisionPendingLab error:', provErr);
+      throw provErr;
+    }
+
+    await loadUserData(currentUser);
+    return provData;
   };
 
   // Upgrade or Activate Paid Subscription (Monthly or Yearly)
@@ -286,6 +368,7 @@ export function AuthProvider({ children }) {
         passwordRecovery,
         signIn,
         registerLab,
+        provisionPendingLab,
         requestPasswordReset,
         updateOwnPassword,
         signOut,
