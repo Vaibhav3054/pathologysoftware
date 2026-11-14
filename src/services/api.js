@@ -763,7 +763,7 @@ export const api = {
       throw new Error('Your session has expired. Please sign in again.');
     }
 
-    let res = await fetch(`/api/${functionName}`, {
+    const res = await fetch(`/.netlify/functions/${functionName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -771,18 +771,6 @@ export const api = {
       },
       body: JSON.stringify(bodyPayload),
     });
-
-    // Fallback for direct Netlify function path if running in an environment without rewrite
-    if (res.status === 404) {
-      res = await fetch(`/.netlify/functions/${functionName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify(bodyPayload),
-      });
-    }
 
     let payload = {};
     try {

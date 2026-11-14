@@ -1,8 +1,0 @@
-# Same-origin proxy for Supabase REST/Auth/Storage (prevents adblocker and ISP issues)
-/supabase-api/*  https://zgudwlzlmroxkrkbmqxl.supabase.co/:splat  200
-
-# Legacy compatibility rewrite from Netlify path to unified API path
-/.netlify/functions/*  /api/:splat  200
-
-# Single Page Application (SPA) client-side routing fallback
-/*  /index.html  200
