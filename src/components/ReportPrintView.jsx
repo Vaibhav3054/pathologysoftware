@@ -24,11 +24,9 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
   const [hideHeaderForLetterhead, setHideHeaderForLetterhead] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // CHANGE 2: Payment Display Option for Print / PDF
+  // Payment Display Option for Print / PDF
   // Options: 'complete' | 'fully_paid' | 'total_only' | 'hidden'
   const [paymentPrintMode, setPaymentPrintMode] = useState('complete');
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // 'print' or 'pdf'
 
   useEffect(() => {
     loadAll();
@@ -50,49 +48,32 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
     }
   };
 
-  // Open modal before printing or exporting
-  const handlePrintClick = () => {
-    setPendingAction('print');
-    setShowPaymentModal(true);
+  // Directly trigger physical print without blocking popup
+  const handlePrintClick = async () => {
+    try {
+      await api.printReport();
+    } catch (err) {
+      console.error('Print error:', err);
+      window.print();
+    }
   };
 
-  const handleExportPDFClick = () => {
-    setPendingAction('pdf');
-    setShowPaymentModal(true);
-  };
-
-  // Execute print or export after modal confirmation
-  const executeConfirmedAction = async () => {
-    setShowPaymentModal(false);
-    const action = pendingAction;
-    setPendingAction(null);
-
-    // Short timeout to ensure state update renders in DOM before Chromium print dialog captures page
-    setTimeout(async () => {
-      if (action === 'print') {
-        try {
-          await api.printReport();
-        } catch (err) {
-          console.error('Print error:', err);
-          window.print();
-        }
-      } else if (action === 'pdf') {
-        try {
-          setIsExporting(true);
-          const patientName = data?.report?.patient_name ? data.report.patient_name.replace(/[^a-zA-Z0-9]/g, '_') : 'Patient';
-          const defaultName = `${data?.report?.report_number || 'Report'}_${patientName}.pdf`;
-          const res = await api.exportPDF(defaultName);
-          if (res && res.filePath) {
-            alert(`Report successfully exported to:\n${res.filePath}`);
-          }
-        } catch (err) {
-          console.error('Export PDF error:', err);
-          alert('Failed to export PDF: ' + err.message);
-        } finally {
-          setIsExporting(false);
-        }
+  // Directly trigger PDF export without blocking popup
+  const handleExportPDFClick = async () => {
+    try {
+      setIsExporting(true);
+      const patientName = data?.report?.patient_name ? data.report.patient_name.replace(/[^a-zA-Z0-9]/g, '_') : 'Patient';
+      const defaultName = `${data?.report?.report_number || 'Report'}_${patientName}.pdf`;
+      const res = await api.exportPDF(defaultName);
+      if (res && res.filePath) {
+        alert(`Report successfully exported to:\n${res.filePath}`);
       }
-    }, 150);
+    } catch (err) {
+      console.error('Export PDF error:', err);
+      alert('Failed to export PDF: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading || !data || !settings) {
@@ -498,191 +479,6 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
 
         </div>
       </div>
-
-      {/* =========================================================================
-          CHANGE 2: PAYMENT INFORMATION POPUP MODAL (PRINT REPORT MODAL)
-          Appears when staff clicks "Print Report" or "Export PDF"
-          ========================================================================= */}
-      {showPaymentModal && (
-        <div className="no-print fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-            {/* Modal Header */}
-            <div className="p-5 bg-gradient-to-r from-sky-900 to-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm tracking-wide">Payment Information for Printed Report</h3>
-                  <p className="text-[11px] text-sky-200/80">Choose how payment details should appear on the printed copy</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setPendingAction(null);
-                }}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Content / Options List */}
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-slate-500">
-                This choice affects <strong>only this printed report / PDF</strong>. The actual database payment records will remain unchanged.
-              </p>
-
-              {/* Option 1: Complete Payment Information */}
-              <label 
-                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition ${
-                  paymentPrintMode === 'complete' 
-                    ? 'bg-sky-50/80 border-sky-500 ring-1 ring-sky-500' 
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="modal_payment_mode"
-                  value="complete"
-                  checked={paymentPrintMode === 'complete'}
-                  onChange={() => setPaymentPrintMode('complete')}
-                  className="mt-0.5 text-sky-600 focus:ring-sky-500"
-                />
-                <div className="flex-1 text-xs">
-                  <span className="font-bold text-slate-900 block text-xs">
-                    1. Show Complete Payment Information
-                  </span>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block leading-relaxed">
-                    Prints individual test charges, Total Amount (₹{report.total_amount}), Paid Amount (₹{report.paid_amount}), Pending Due (₹{report.pending_amount}), and Payment Status ({report.payment_status}).
-                  </span>
-                </div>
-              </label>
-
-              {/* Option 2: Show as Fully Paid */}
-              <label 
-                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition ${
-                  paymentPrintMode === 'fully_paid' 
-                    ? 'bg-emerald-50/80 border-emerald-500 ring-1 ring-emerald-500' 
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="modal_payment_mode"
-                  value="fully_paid"
-                  checked={paymentPrintMode === 'fully_paid'}
-                  onChange={() => setPaymentPrintMode('fully_paid')}
-                  className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div className="flex-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 block text-xs">
-                      2. Show as Fully Paid
-                    </span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.2 rounded font-bold uppercase">
-                      Paid in Full
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block leading-relaxed">
-                    Prints receipt showing Total (₹{report.total_amount}), Paid = ₹{report.total_amount}, Pending = ₹0, and Status: "PAID" on the printed report. (Leaves saved database record untouched).
-                  </span>
-                </div>
-              </label>
-
-              {/* Option 3: Show Only Total Amount */}
-              <label 
-                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition ${
-                  paymentPrintMode === 'total_only' 
-                    ? 'bg-sky-50/80 border-sky-500 ring-1 ring-sky-500' 
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="modal_payment_mode"
-                  value="total_only"
-                  checked={paymentPrintMode === 'total_only'}
-                  onChange={() => setPaymentPrintMode('total_only')}
-                  className="mt-0.5 text-sky-600 focus:ring-sky-500"
-                />
-                <div className="flex-1 text-xs">
-                  <span className="font-bold text-slate-900 block text-xs">
-                    3. Show Only Total Amount
-                  </span>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block leading-relaxed">
-                    Prints individual test charges and Total Amount (₹{report.total_amount}). Completely hides Paid Amount, Pending Due, and Payment Status.
-                  </span>
-                </div>
-              </label>
-
-              {/* Option 4: Hide All Payment Details */}
-              <label 
-                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition ${
-                  paymentPrintMode === 'hidden' 
-                    ? 'bg-sky-50/80 border-sky-500 ring-1 ring-sky-500' 
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="modal_payment_mode"
-                  value="hidden"
-                  checked={paymentPrintMode === 'hidden'}
-                  onChange={() => setPaymentPrintMode('hidden')}
-                  className="mt-0.5 text-sky-600 focus:ring-sky-500"
-                />
-                <div className="flex-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 block text-xs">
-                      4. Hide All Payment Details
-                    </span>
-                    <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.2 rounded font-bold uppercase">
-                      Pure Report
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block leading-relaxed">
-                    Prints only the medical test results and X-ray report. Omits all billing tables, test prices, and payment details entirely.
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setPendingAction(null);
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={executeConfirmedAction}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/30 transition active:scale-95"
-              >
-                {pendingAction === 'pdf' ? (
-                  <>
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Continue to Export PDF</span>
-                  </>
-                ) : (
-                  <>
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Continue to Print</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
