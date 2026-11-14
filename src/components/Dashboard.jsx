@@ -12,14 +12,24 @@ import {
   Edit3,
   Calendar,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PERMISSIONS } from '../config/permissions';
 
 export default function Dashboard({ setCurrentView, onViewReport, onEditReport }) {
-  const { tenant, tenantSettings, isTrial, getTrialDaysRemaining, hasPermission } = useAuth();
+  const {
+    tenant,
+    tenantSettings,
+    isTrial,
+    isComplimentary,
+    isUnlimited,
+    getDaysRemaining,
+    getTrialDaysRemaining,
+    hasPermission
+  } = useAuth();
   const canManageSubscription = hasPermission(PERMISSIONS.MANAGE_SUBSCRIPTION);
   const [stats, setStats] = useState({
     patientsToday: 0,
@@ -97,6 +107,30 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
           </div>
         </div>
       </div>
+
+      {/* Complimentary Access Notice Banner */}
+      {isComplimentary && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Gift className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-800 text-xs">
+                  {isUnlimited ? 'Complimentary Unlimited Access' : 'Complimentary Access Active'}
+                </span>
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {isUnlimited ? 'Lifetime / Unlimited' : `${getDaysRemaining()} day(s) remaining`}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Full platform access granted by platform administration. No payment required.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3-Day Free Trial Notice Banner */}
       {isTrial && (

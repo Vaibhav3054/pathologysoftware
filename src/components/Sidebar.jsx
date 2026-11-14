@@ -18,7 +18,19 @@ import { useAuth } from '../context/AuthContext';
 import { getRoleDisplayLabel } from '../config/permissions';
 
 export default function Sidebar({ currentView, setCurrentView, isOpen = false, onClose, onOpenChangePassword }) {
-  const { profile, tenant, tenantSettings, signOut, isSuperAdmin, canAccessView, isTrial, getTrialDaysRemaining } = useAuth();
+  const {
+    profile,
+    tenant,
+    tenantSettings,
+    signOut,
+    isSuperAdmin,
+    canAccessView,
+    isTrial,
+    isComplimentary,
+    isUnlimited,
+    getDaysRemaining,
+    getTrialDaysRemaining
+  } = useAuth();
 
   const allMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -75,10 +87,18 @@ export default function Sidebar({ currentView, setCurrentView, isOpen = false, o
                   {getRoleDisplayLabel(profile?.role)}
                 </span>
                 {tenant?.is_test_lab && (
-                  <span className="bg-indigo-500/30 text-indigo-300 text-[9px] px-1 rounded font-bold">Demo</span>
+                  <span className="bg-indigo-500/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded font-bold">Demo</span>
+                )}
+                {isUnlimited && (
+                  <span className="bg-purple-500/30 text-purple-300 text-[9px] px-1.5 py-0.5 rounded font-bold">Unlimited</span>
+                )}
+                {!isUnlimited && isComplimentary && (
+                  <span className="bg-amber-500/30 text-amber-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                    {getDaysRemaining()}d Free Access
+                  </span>
                 )}
                 {isTrial && (
-                  <span className="bg-emerald-500/30 text-emerald-300 text-[9px] px-1 rounded font-bold">
+                  <span className="bg-emerald-500/30 text-emerald-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
                     {getTrialDaysRemaining()}d Trial
                   </span>
                 )}

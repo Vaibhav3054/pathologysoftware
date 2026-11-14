@@ -291,13 +291,34 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const isTrial = Boolean(subscription?.plan_type === 'trial' || subscription?.subscription_source === 'trial');
+  const isComplimentary = Boolean(
+    subscription?.subscription_source === 'complimentary' ||
+    subscription?.plan_type === 'custom' ||
+    subscription?.plan_type === 'unlimited'
+  );
 
-  const getTrialDaysRemaining = () => {
+  const isUnlimited = Boolean(
+    subscription?.is_unlimited === true ||
+    subscription?.plan_type === 'unlimited'
+  );
+
+  const isTrial = Boolean(
+    !isComplimentary &&
+    !isUnlimited &&
+    (subscription?.plan_type === 'trial' || subscription?.subscription_source === 'trial')
+  );
+
+  const getDaysRemaining = () => {
+    if (isUnlimited) return Infinity;
     if (!subscription?.expires_at) return 0;
     const diffMs = new Date(subscription.expires_at) - new Date();
     if (diffMs <= 0) return 0;
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  };
+
+  const getTrialDaysRemaining = () => {
+    const days = getDaysRemaining();
+    return days === Infinity ? 0 : days;
   };
 
   // Send password reset email
@@ -382,6 +403,9 @@ export function AuthProvider({ children }) {
         canAccessView,
         isSubscriptionActive,
         isTrial,
+        isComplimentary,
+        isUnlimited,
+        getDaysRemaining,
         getTrialDaysRemaining,
         upgradeSubscription,
       }}

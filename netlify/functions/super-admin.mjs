@@ -388,6 +388,7 @@ export default async (req) => {
           .from('tenant_subscriptions')
           .update({
             status: 'active',
+            plan_type: isUnlimited ? 'unlimited' : 'custom',
             subscription_source: 'complimentary',
             billing_amount: 0,
             is_unlimited: Boolean(isUnlimited),
