@@ -616,7 +616,7 @@ export const api = {
 
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
-      query = query.or(`patient_name.ilike.${term},report_number.ilike.${term},patient_phone.ilike.${term}`);
+      query = query.or(`patient_name.ilike.${term},report_number.ilike.${term},patient_phone.ilike.${term},doctor_name.ilike.${term}`);
     }
 
     const { data: reports, error } = await query;

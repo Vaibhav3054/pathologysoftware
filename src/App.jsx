@@ -412,6 +412,7 @@ export default function App() {
   };
 
   const handleRegistrationComplete = (reportId) => {
+    setPrefilledPatient(null);
     setActiveReportId(reportId);
     setCurrentView('report-entry');
   };
@@ -710,6 +711,9 @@ export default function App() {
             {currentView === 'dashboard' && (
               <Dashboard 
                 setCurrentView={(view) => {
+                  if (view === 'new-entry') {
+                    setPrefilledPatient(null);
+                  }
                   if (view === 'settings-subscription') {
                     if (!canAccessView('settings')) return;
                     setSettingsTab('subscription');

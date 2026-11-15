@@ -112,8 +112,9 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
     calculatedPaid = 0;
     calculatedPending = totalAmount;
   } else {
-    // Partially Paid
-    calculatedPaid = Math.min(parseFloat(paidAmount) || 0, totalAmount);
+    // Partially Paid - clamp to non-negative and max totalAmount
+    const parsedPaid = Math.max(0, parseFloat(paidAmount) || 0);
+    calculatedPaid = Math.min(parsedPaid, totalAmount);
     calculatedPending = Math.max(0, totalAmount - calculatedPaid);
   }
 
@@ -183,8 +184,8 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
       setErrorMsg('Patient Name is required.');
       return;
     }
-    if (!age || parseInt(age) <= 0 || parseInt(age) > 130) {
-      setErrorMsg('Please enter a valid age.');
+    if (age === '' || isNaN(parseInt(age)) || parseInt(age) < 0 || parseInt(age) > 130) {
+      setErrorMsg('Please enter a valid age (0 to 130). For infants under 1 year, enter 0.');
       return;
     }
     if (!phone.trim()) {
@@ -352,7 +353,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                   max="125"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
-                  placeholder="Yrs"
+                  placeholder="Yrs (0 for infant)"
                   required
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none transition"
                 />

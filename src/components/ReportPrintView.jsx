@@ -175,7 +175,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
         
         {/* SECTION A: CLINIC HEADER (SUPPRESSED IF USING PRE-PRINTED LETTERHEAD PAD) */}
         {hideHeaderForLetterhead ? (
-          <div style={{ height: `${settings.letterhead_top_margin || 35}mm` }} className="no-print:border-b no-print:border-dashed no-print:border-slate-300 no-print:flex no-print:items-center no-print:justify-center no-print:text-xs no-print:text-slate-400">
+          <div style={{ height: `${settings.letterhead_top_margin || 35}mm` }} className="border-b border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 print:border-none">
             <span className="no-print">[ Pre-printed Letterhead Pad Space: {settings.letterhead_top_margin || 35}mm ]</span>
           </div>
         ) : (

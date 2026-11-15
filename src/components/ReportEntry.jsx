@@ -66,19 +66,22 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
     if (!normalRangeStr) return false;
     const cleanRange = normalRangeStr.replace(/,/g, '');
 
-    const lessMatch = cleanRange.match(/<\s*([0-9.]+)/);
-    if (lessMatch) {
-      const threshold = parseFloat(lessMatch[1]);
-      return num >= threshold;
+    // Match "Up to 150", "Upto 150", "< 150", "<= 150", "Less than 150"
+    const upperLimitMatch = cleanRange.match(/(?:up\s*to|upto|<\s*=?|less\s*than)\s*([0-9.]+)/i);
+    if (upperLimitMatch) {
+      const threshold = parseFloat(upperLimitMatch[1]);
+      return num > threshold;
     }
 
-    const greaterMatch = cleanRange.match(/>\s*([0-9.]+)/);
-    if (greaterMatch) {
-      const threshold = parseFloat(greaterMatch[1]);
-      return num <= threshold;
+    // Match "> 40", ">= 40", "Greater than 40", "More than 40"
+    const lowerLimitMatch = cleanRange.match(/(?:>\s*=?|greater\s*than|more\s*than)\s*([0-9.]+)/i);
+    if (lowerLimitMatch) {
+      const threshold = parseFloat(lowerLimitMatch[1]);
+      return num < threshold;
     }
 
-    const rangeMatch = cleanRange.match(/([0-9.]+)\s*[-–to]\s*([0-9.]+)/);
+    // Match range like "13.0 - 17.0" or "4000 - 11000" or "13.0 to 17.0"
+    const rangeMatch = cleanRange.match(/([0-9.]+)\s*[-–to]\s*([0-9.]+)/i);
     if (rangeMatch) {
       const min = parseFloat(rangeMatch[1]);
       const max = parseFloat(rangeMatch[2]);
@@ -538,11 +541,12 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
           </button>
           <button
             type="button"
-            onClick={() => onViewReport(report.id)}
-            className="px-2.5 sm:px-5 py-2.5 sm:py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-[11px] sm:text-xs font-bold shadow-md flex items-center justify-center gap-1.5 transition"
+            disabled={saving}
+            onClick={handlePreviewAndPrint}
+            className="px-2.5 sm:px-5 py-2.5 sm:py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-[11px] sm:text-xs font-bold shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
           >
             <Printer className="w-3.5 h-3.5 shrink-0" />
-            <span>Print</span>
+            <span>{saving ? 'Saving...' : 'Print'}</span>
           </button>
         </div>
       </div>
