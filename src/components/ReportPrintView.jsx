@@ -154,7 +154,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
               className="flex items-center justify-center gap-1.5 px-4 py-2 sm:py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-600/30 transition active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              <span>🖨 Print A4</span>
+              <span>Print A4</span>
             </button>
           </div>
         </div>
@@ -232,7 +232,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Age / Gender</span>
-              <span className="font-semibold">{report.patient_age} Yrs / {report.patient_gender}</span>
+              <span className="font-semibold">{parseInt(report.patient_age) <= 0 ? '< 1 Year (Infant)' : `${report.patient_age} Yrs`} / {report.patient_gender}</span>
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone Number</span>
@@ -286,7 +286,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
                   <tbody className="divide-y divide-slate-100">
                     {test.parameters && test.parameters.length > 0 ? (
                       test.parameters.map((param) => {
-                        const isAbnormal = param.is_abnormal === 1;
+                        const isAbnormal = Boolean(param.is_abnormal);
                         return (
                           <tr key={param.id} className={isAbnormal ? 'bg-rose-50/50' : ''}>
                             <td className="py-1.5 px-3 font-medium text-slate-800">
@@ -478,7 +478,7 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
               ) : (
                 <div className="w-40 border-b border-dashed border-slate-500 h-8 mb-2" />
               )}
-              <div className="font-bold text-slate-900 text-xs tracking-tight">{settings.signatory_name || 'Consultant Pathologist'}</div>
+              <div className="font-bold text-slate-900 text-xs tracking-tight">{settings.signatory_name || 'Dr. Authorized Signatory'}</div>
               <div className="text-[11px] text-slate-700 font-medium">{settings.signatory_degree || 'M.B.B.S., M.D. (Pathology)'}</div>
               <div className="text-[10px] text-sky-900 font-bold uppercase tracking-wider">{settings.signatory_designation || 'Consultant Pathologist'}</div>
             </div>

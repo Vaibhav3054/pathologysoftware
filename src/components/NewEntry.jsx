@@ -464,30 +464,47 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
 
             {/* Test Checklist */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filteredBloodTests.map(test => {
-                const selected = isServiceSelected(test);
-                return (
-                  <div
-                    key={`blood-${test.id}`}
-                    onClick={() => toggleService(test)}
-                    className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
-                      selected
-                        ? 'bg-rose-50/70 border-rose-300 text-slate-900 shadow-xs'
-                        : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
-                        selected ? 'bg-rose-600 border-rose-600 text-white' : 'border-slate-300 bg-white'
-                      }`}>
-                        {selected && <Check className="w-3 h-3 stroke-[3]" />}
+              {filteredBloodTests.length === 0 ? (
+                <div className="h-full min-h-[140px] flex flex-col items-center justify-center p-6 text-center text-slate-400 text-xs space-y-1.5">
+                  <span className="text-slate-500 font-medium">
+                    {bloodSearch ? `No blood tests matching "${bloodSearch}"` : 'No blood tests configured in catalog'}
+                  </span>
+                  {bloodSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setBloodSearch('')}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                    >
+                      Clear search filter
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredBloodTests.map(test => {
+                  const selected = isServiceSelected(test);
+                  return (
+                    <div
+                      key={`blood-${test.id}`}
+                      onClick={() => toggleService(test)}
+                      className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                        selected
+                          ? 'bg-rose-50/70 border-rose-300 text-slate-900 shadow-xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
+                          selected ? 'bg-rose-600 border-rose-600 text-white' : 'border-slate-300 bg-white'
+                        }`}>
+                          {selected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className="font-medium truncate">{test.name}</span>
                       </div>
-                      <span className="font-medium truncate">{test.name}</span>
+                      <span className="font-semibold font-mono text-slate-700 shrink-0">₹{test.price}</span>
                     </div>
-                    <span className="font-semibold font-mono text-slate-700 shrink-0">₹{test.price}</span>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -517,30 +534,47 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
 
             {/* X-Ray Checklist */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filteredXrays.map(xray => {
-                const selected = isServiceSelected(xray);
-                return (
-                  <div
-                    key={`xray-${xray.id}`}
-                    onClick={() => toggleService(xray)}
-                    className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
-                      selected
-                        ? 'bg-indigo-50/70 border-indigo-300 text-slate-900 shadow-xs'
-                        : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
-                        selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
-                      }`}>
-                        {selected && <Check className="w-3 h-3 stroke-[3]" />}
+              {filteredXrays.length === 0 ? (
+                <div className="h-full min-h-[140px] flex flex-col items-center justify-center p-6 text-center text-slate-400 text-xs space-y-1.5">
+                  <span className="text-slate-500 font-medium">
+                    {xraySearch ? `No X-ray services matching "${xraySearch}"` : 'No X-ray services configured in catalog'}
+                  </span>
+                  {xraySearch && (
+                    <button
+                      type="button"
+                      onClick={() => setXraySearch('')}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer"
+                    >
+                      Clear search filter
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredXrays.map(xray => {
+                  const selected = isServiceSelected(xray);
+                  return (
+                    <div
+                      key={`xray-${xray.id}`}
+                      onClick={() => toggleService(xray)}
+                      className={`flex items-center justify-between gap-2 p-3 sm:p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                        selected
+                          ? 'bg-indigo-50/70 border-indigo-300 text-slate-900 shadow-xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200/70 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 transition ${
+                          selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+                        }`}>
+                          {selected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className="font-medium truncate">{xray.name}</span>
                       </div>
-                      <span className="font-medium truncate">{xray.name}</span>
+                      <span className="font-semibold font-mono text-slate-700 shrink-0">₹{xray.price}</span>
                     </div>
-                    <span className="font-semibold font-mono text-slate-700 shrink-0">₹{xray.price}</span>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

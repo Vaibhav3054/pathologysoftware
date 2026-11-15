@@ -12,9 +12,9 @@ export default function LegalPagesView({ initialTab = 'terms', onClose, isModal 
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const content = (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden max-w-4xl w-full mx-auto">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden max-w-4xl w-full mx-auto max-h-[88vh] flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 to-sky-950 p-5 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="bg-gradient-to-r from-slate-900 to-sky-950 p-5 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-2 text-sky-300 text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -39,7 +39,7 @@ export default function LegalPagesView({ initialTab = 'terms', onClose, isModal 
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 px-5 pt-4 pb-3 border-b border-slate-200 bg-slate-50">
+      <div className="flex flex-wrap gap-2 px-5 pt-4 pb-3 border-b border-slate-200 bg-slate-50 shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab('terms')}
@@ -75,7 +75,7 @@ export default function LegalPagesView({ initialTab = 'terms', onClose, isModal 
       </div>
 
       {/* Document Body */}
-      <div className="p-5 sm:p-8 space-y-5 text-xs sm:text-sm text-slate-700 leading-relaxed max-h-[70vh] overflow-y-auto">
+      <div className="p-5 sm:p-8 space-y-5 text-xs sm:text-sm text-slate-700 leading-relaxed overflow-y-auto flex-1">
         {activeTab === 'terms' && (
           <div className="space-y-4">
             <h3 className="text-base font-bold text-slate-900">1. Platform Subscription & License</h3>
@@ -148,7 +148,7 @@ export default function LegalPagesView({ initialTab = 'terms', onClose, isModal 
 
   if (isModal) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
         {content}
       </div>
     );

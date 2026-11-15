@@ -270,7 +270,7 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-slate-800">{report.patient_name}</div>
                         <div className="text-xs text-slate-400">
-                          {report.patient_age} Y / {report.patient_gender} • {report.patient_phone}
+                          {parseInt(report.patient_age) <= 0 ? '< 1 Y (Infant)' : `${report.patient_age} Y`} / {report.patient_gender} • {report.patient_phone}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 max-w-xs truncate text-xs text-slate-600">
@@ -329,7 +329,7 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
                       </span>
                       <div className="font-bold text-slate-900 text-sm mt-0.5">{report.patient_name}</div>
                       <div className="text-[11px] text-slate-500">
-                        {report.patient_age} Y / {report.patient_gender} • {report.patient_phone}
+                        {parseInt(report.patient_age) <= 0 ? '< 1 Y (Infant)' : `${report.patient_age} Y`} / {report.patient_gender} • {report.patient_phone}
                       </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
@@ -345,8 +345,8 @@ export default function Dashboard({ setCurrentView, onViewReport, onEditReport }
                     {report.services_summary || 'N/A'}
                   </p>
 
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${
                       report.payment_status === 'Paid'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : report.payment_status === 'Partially Paid'

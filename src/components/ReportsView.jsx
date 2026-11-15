@@ -275,7 +275,7 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-slate-800">{rep.patient_name}</div>
                         <div className="text-[11px] text-slate-400">
-                          {rep.patient_age} Y / {rep.patient_gender}
+                          {parseInt(rep.patient_age) <= 0 ? '< 1 Y (Infant)' : `${rep.patient_age} Y`} / {rep.patient_gender}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">
@@ -359,7 +359,7 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                       </div>
                       <h4 className="font-bold text-slate-900 text-sm mt-0.5">{rep.patient_name}</h4>
                       <div className="text-[11px] text-slate-500">
-                        {rep.patient_age} Y / {rep.patient_gender} • <span className="font-mono">{rep.patient_phone}</span>
+                        {parseInt(rep.patient_age) <= 0 ? '< 1 Y (Infant)' : `${rep.patient_age} Y`} / {rep.patient_gender} • <span className="font-mono">{rep.patient_phone}</span>
                       </div>
                     </div>
 
@@ -376,7 +376,7 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                     {rep.services_summary || 'N/A'}
                   </p>
 
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                     <button
                       type="button"
                       onClick={() => openPaymentModal(rep)}

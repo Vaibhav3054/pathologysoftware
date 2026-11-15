@@ -209,7 +209,7 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="space-y-6 max-w-6xl mx-auto pb-28 sm:pb-20">
       {/* Top Action & Navigation Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-3">
@@ -279,7 +279,7 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
         <div className="space-y-1">
           <span className="text-slate-400 uppercase font-semibold text-[10px] tracking-wider block">Patient Details</span>
           <div className="font-bold text-slate-800 text-sm">{report.patient_name}</div>
-          <div className="text-slate-500">{report.patient_age} Years / {report.patient_gender}</div>
+          <div className="text-slate-500">{parseInt(report.patient_age) <= 0 ? '< 1 Year (Infant)' : `${report.patient_age} Years`} / {report.patient_gender}</div>
           <div className="text-slate-500 font-mono">{report.patient_phone}</div>
         </div>
 
