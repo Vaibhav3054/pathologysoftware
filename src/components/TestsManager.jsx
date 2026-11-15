@@ -79,10 +79,11 @@ export default function TestsManager() {
     if (!canManageTests) return;
     if (!newTestName.trim()) return;
     try {
+      const validPrice = Math.max(0, parseFloat(newTestPrice) || 0);
       await api.addTest(
         activeTab,
         newTestName.trim(),
-        parseFloat(newTestPrice) || 0,
+        validPrice,
         activeTab === 'blood' ? 'Pathology' : 'Radiology'
       );
       setNewTestName('');
@@ -100,7 +101,8 @@ export default function TestsManager() {
     if (!canManageTests) return;
     if (!editingTest || !editingTest.name.trim()) return;
     try {
-      await api.updateTest(editingTest.id, editingTest.name, editingTest.price);
+      const validPrice = Math.max(0, parseFloat(editingTest.price) || 0);
+      await api.updateTest(editingTest.id, editingTest.name.trim(), validPrice);
       setEditingTest(null);
       await loadTests();
       if (selectedTest?.id === editingTest.id) {
@@ -533,6 +535,8 @@ export default function TestsManager() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Standard Price (₹)</label>
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   placeholder="e.g. 400"
                   value={newTestPrice}
                   onChange={(e) => setNewTestPrice(e.target.value)}
@@ -586,6 +590,8 @@ export default function TestsManager() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Price (₹)</label>
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={editingTest.price}
                   onChange={(e) => setEditingTest({ ...editingTest, price: e.target.value })}
                   required

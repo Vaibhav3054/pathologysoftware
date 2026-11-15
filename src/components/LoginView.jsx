@@ -30,16 +30,18 @@ export default function LoginView({ onSwitchToRegister }) {
     setErrorMsg('');
     setSuccessMsg('');
 
+    const cleanEmail = email.trim().toLowerCase();
+
     if (mode === 'forgot') {
-      if (!email.trim()) {
+      if (!cleanEmail) {
         setErrorMsg('Please enter your registered email address.');
         return;
       }
       try {
         setLoading(true);
-        await requestPasswordReset(email);
+        await requestPasswordReset(cleanEmail);
         setSuccessMsg(
-          `If an active account exists for ${email.trim()}, a password reset link has been sent. Please check your inbox (and spam folder).`
+          `If an active account exists for ${cleanEmail}, a password reset link has been sent. Please check your inbox (and spam folder).`
         );
       } catch (err) {
         console.error('Reset request error:', err);
@@ -50,14 +52,14 @@ export default function LoginView({ onSwitchToRegister }) {
       return;
     }
 
-    if (!email.trim() || !password) {
+    if (!cleanEmail || !password) {
       setErrorMsg('Please enter both email and password.');
       return;
     }
 
     try {
       setLoading(true);
-      await signIn(email, password);
+      await signIn(cleanEmail, password);
     } catch (err) {
       console.error('Login error:', err);
       setErrorMsg(err.message || 'Invalid email or password.');

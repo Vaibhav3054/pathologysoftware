@@ -272,8 +272,20 @@ export const api = {
     }
 
     if (queryStr && queryStr.trim()) {
-      const term = `%${queryStr.trim()}%`;
-      query = query.or(`name.ilike.${term},phone.ilike.${term}`);
+      const cleanTerm = queryStr.trim();
+      const term = `%${cleanTerm}%`;
+      const digits = cleanTerm.replace(/\D/g, '');
+
+      const orConditions = [`name.ilike.${term}`, `phone.ilike.${term}`];
+      if (digits.length >= 3) {
+        orConditions.push(`phone.ilike.%${digits}%`);
+        if (digits.length > 10) {
+          // e.g. formatted with +91: +919876543210 -> search 10-digit suffix 9876543210
+          orConditions.push(`phone.ilike.%${digits.slice(-10)}%`);
+        }
+      }
+
+      query = query.or(orConditions.join(','));
     }
 
     const { data, error } = await query
@@ -758,7 +770,11 @@ export const api = {
     const tid = await this.getActiveTenantId(tenantId);
     const { data: patients } = await supabase.from('patients').select('*');
     const { data: reports } = await supabase.from('reports').select('*');
+    const { data: reportServices } = await supabase.from('report_services').select('*');
+    const { data: testResults } = await supabase.from('report_test_results').select('*');
+    const { data: xrayResults } = await supabase.from('report_xray_results').select('*');
     const { data: tests } = await supabase.from('tests').select('*');
+    const { data: testParams } = await supabase.from('test_parameters').select('*');
     const { data: doctors } = await supabase.from('doctors').select('*');
     const { data: settings } = await supabase.from('tenant_settings').select('*');
 
@@ -769,13 +785,21 @@ export const api = {
       counts: {
         patients: patients?.length || 0,
         reports: reports?.length || 0,
+        report_services: reportServices?.length || 0,
+        report_test_results: testResults?.length || 0,
+        report_xray_results: xrayResults?.length || 0,
         tests: tests?.length || 0,
+        test_parameters: testParams?.length || 0,
         doctors: doctors?.length || 0,
       },
       data: {
         patients: patients || [],
         reports: reports || [],
+        report_services: reportServices || [],
+        report_test_results: testResults || [],
+        report_xray_results: xrayResults || [],
         tests: tests || [],
+        test_parameters: testParams || [],
         doctors: doctors || [],
       }
     };

@@ -284,28 +284,36 @@ export default function ReportPrintView({ reportId, onBack, onEdit }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {test.parameters.map((param) => {
-                      const isAbnormal = param.is_abnormal === 1;
-                      return (
-                        <tr key={param.id} className={isAbnormal ? 'bg-rose-50/50' : ''}>
-                          <td className="py-1.5 px-3 font-medium text-slate-800">
-                            {param.parameter_name}
-                          </td>
-                          <td className={`py-1.5 px-3 text-center ${
-                            isAbnormal ? 'font-bold text-rose-700 text-sm' : 'font-semibold text-slate-900'
-                          }`}>
-                            {param.result || '—'}
-                            {isAbnormal && <span className="ml-1 text-[10px] text-rose-600 font-bold">*</span>}
-                          </td>
-                          <td className="py-1.5 px-3 font-mono text-slate-600 text-[11px]">
-                            {param.unit || '—'}
-                          </td>
-                          <td className="py-1.5 px-3 text-slate-600 text-[11px]">
-                            {param.normal_range || '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {test.parameters && test.parameters.length > 0 ? (
+                      test.parameters.map((param) => {
+                        const isAbnormal = param.is_abnormal === 1;
+                        return (
+                          <tr key={param.id} className={isAbnormal ? 'bg-rose-50/50' : ''}>
+                            <td className="py-1.5 px-3 font-medium text-slate-800">
+                              {param.parameter_name}
+                            </td>
+                            <td className={`py-1.5 px-3 text-center ${
+                              isAbnormal ? 'font-bold text-rose-700 text-sm' : 'font-semibold text-slate-900'
+                            }`}>
+                              {param.result || '—'}
+                              {isAbnormal && <span className="ml-1 text-[10px] text-rose-600 font-bold">*</span>}
+                            </td>
+                            <td className="py-1.5 px-3 font-mono text-slate-600 text-[11px]">
+                              {param.unit || '—'}
+                            </td>
+                            <td className="py-1.5 px-3 text-slate-600 text-[11px]">
+                              {param.normal_range || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-3 px-3 text-slate-400 italic text-center text-xs">
+                          Test parameters have not been configured for this investigation.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
