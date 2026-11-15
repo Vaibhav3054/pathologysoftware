@@ -3,6 +3,14 @@ import { supabase } from './supabase';
 
 let currentTenantId = null;
 
+// Helper to return YYYY-MM-DD in the local clinic's timezone (avoids UTC midnight discrepancy in IST)
+export const getLocalDateString = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const setApiTenantId = (id) => {
   currentTenantId = id;
 };
@@ -22,6 +30,11 @@ export const getApiTenantId = async () => {
 
 export const api = {
   supabase,
+
+  // Helper for consistent local clinic date (YYYY-MM-DD)
+  getLocalDateString(d = new Date()) {
+    return getLocalDateString(d);
+  },
 
   // Helper to ensure tenant ID is resolved
   async getActiveTenantId(providedTenantId = null) {
@@ -244,15 +257,23 @@ export const api = {
   // -----------------------------------------------------------------------
   // PATIENTS
   // -----------------------------------------------------------------------
-  async searchPatients(queryStr) {
-    if (!queryStr || !queryStr.trim()) return [];
-    const term = `%${queryStr.trim()}%`;
-    const { data, error } = await supabase
-      .from('patients')
-      .select('*')
-      .or(`name.ilike.${term},phone.ilike.${term}`)
+  async searchPatients(queryStr = '', tenantId = null) {
+    const tid = await this.getActiveTenantId(tenantId);
+    let query = supabase.from('patients').select('*');
+
+    if (tid) {
+      query = query.eq('tenant_id', tid);
+    }
+
+    if (queryStr && queryStr.trim()) {
+      const term = `%${queryStr.trim()}%`;
+      query = query.or(`name.ilike.${term},phone.ilike.${term}`);
+    }
+
+    const { data, error } = await query
       .order('updated_at', { ascending: false })
-      .limit(15);
+      .limit(30);
+
     if (error) throw error;
     return data || [];
   },
@@ -351,7 +372,7 @@ export const api = {
     const { reportNumber } = await this.generateNextReportNumber(tid);
 
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(now);
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
     // 3. Create Report Record
@@ -540,11 +561,19 @@ export const api = {
   // -----------------------------------------------------------------------
   // REPORTS LIST & FILTERING
   // -----------------------------------------------------------------------
-  async getReportsList({ search = '', status = 'all', startDate = null, endDate = null, limit = 50 }) {
+  async getReportsList({ search = '', status = 'all', paymentStatus = 'all', date = null, startDate = null, endDate = null, limit = 50 }) {
     let query = supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(limit);
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      query = query.eq('payment_status', paymentStatus);
+    }
+
+    if (date) {
+      query = query.eq('registration_date', date);
     }
 
     if (startDate) {
@@ -581,7 +610,7 @@ export const api = {
   // DASHBOARD STATISTICS
   // -----------------------------------------------------------------------
   async getDashboardStats() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
 
     // Reports created today
     const { count: reportsToday } = await supabase

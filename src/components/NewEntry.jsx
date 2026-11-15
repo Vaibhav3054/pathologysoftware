@@ -81,7 +81,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
       setReportNumber(nextNo);
 
       const now = new Date();
-      setRegistrationDate(now.toISOString().split('T')[0]);
+      setRegistrationDate(api.getLocalDateString(now));
       setRegistrationTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }));
 
       const docs = await api.getDoctors();

@@ -31,8 +31,11 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
       setLoading(true);
       const res = await api.searchPatients(query);
       setPatients(res);
-      if (res.length > 0 && !selectedPatient) {
+      if (res.length > 0 && (!selectedPatient || !res.some(p => p.id === selectedPatient.id))) {
         selectPatient(res[0]);
+      } else if (res.length === 0) {
+        setSelectedPatient(null);
+        setPatientHistory([]);
       }
     } catch (err) {
       console.error('Search patients error:', err);
