@@ -74,6 +74,7 @@ export default function SettingsView({ initialTab = 'clinic' }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'clinic'); // 'clinic' | 'staff' | 'subscription'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isReportNumberDirty, setIsReportNumberDirty] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -152,6 +153,9 @@ export default function SettingsView({ initialTab = 'clinic' }) {
   };
 
   const handleChange = (field, val) => {
+    if (field === 'next_report_number') {
+      setIsReportNumberDirty(true);
+    }
     setSettings(prev => ({ ...prev, [field]: val }));
   };
 
@@ -181,7 +185,11 @@ export default function SettingsView({ initialTab = 'clinic' }) {
     try {
       setSaving(true);
       setSuccessMsg('');
-      await api.updateSettings(settings, tenant?.id);
+      await api.updateSettings({
+        ...settings,
+        update_report_counter: isReportNumberDirty
+      }, tenant?.id);
+      setIsReportNumberDirty(false);
       setSuccessMsg('Settings saved successfully!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {

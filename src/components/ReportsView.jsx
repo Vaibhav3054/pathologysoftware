@@ -7,9 +7,12 @@ import {
   Printer, 
   Filter, 
   Calendar, 
-  IndianRupee,
-  Plus,
-  RefreshCw
+  IndianRupee, 
+  Plus, 
+  RefreshCw,
+  Check,
+  X,
+  CreditCard
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -20,6 +23,80 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
+
+  // Payment settlement modal state
+  const [settlingReport, setSettlingReport] = useState(null);
+  const [newPaidAmount, setNewPaidAmount] = useState('');
+  const [newPaymentStatus, setNewPaymentStatus] = useState('Paid');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState('');
+
+  const openPaymentModal = (rep) => {
+    setSettlingReport(rep);
+    setNewPaidAmount(rep.paid_amount ?? 0);
+    setNewPaymentStatus(rep.payment_status || 'Pending');
+  };
+
+  const handleQuickFullPay = () => {
+    if (!settlingReport) return;
+    setNewPaidAmount(settlingReport.total_amount);
+    setNewPaymentStatus('Paid');
+  };
+
+  const handlePaidAmountChange = (val) => {
+    setNewPaidAmount(val);
+    if (!settlingReport) return;
+    const num = parseFloat(val) || 0;
+    const total = parseFloat(settlingReport.total_amount) || 0;
+    if (num >= total) {
+      setNewPaymentStatus('Paid');
+    } else if (num > 0) {
+      setNewPaymentStatus('Partially Paid');
+    } else {
+      setNewPaymentStatus('Pending');
+    }
+  };
+
+  const handleSavePayment = async (e) => {
+    e.preventDefault();
+    if (!settlingReport) return;
+    try {
+      setIsSavingPayment(true);
+      const total = parseFloat(settlingReport.total_amount) || 0;
+      const paid = Math.min(Math.max(0, parseFloat(newPaidAmount) || 0), total);
+      const pending = Math.max(0, total - paid);
+      let status = newPaymentStatus;
+      if (paid >= total) status = 'Paid';
+      else if (paid > 0) status = 'Partially Paid';
+      else status = 'Pending';
+
+      await api.updateReportBilling(settlingReport.id, {
+        paid_amount: paid,
+        pending_amount: pending,
+        payment_status: status
+      });
+
+      // Update in local state
+      setReports(prev => prev.map(r => {
+        if (r.id !== settlingReport.id) return r;
+        return {
+          ...r,
+          paid_amount: paid,
+          pending_amount: pending,
+          payment_status: status
+        };
+      }));
+
+      setPaymentSuccessMsg(`Payment updated for ${settlingReport.report_number}!`);
+      setTimeout(() => setPaymentSuccessMsg(''), 4000);
+      setSettlingReport(null);
+    } catch (err) {
+      console.error('Failed to update payment:', err);
+      alert('Failed to update payment: ' + err.message);
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
 
   useEffect(() => {
     loadReports();
@@ -71,6 +148,13 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
           <span>+ New Registration</span>
         </button>
       </div>
+
+      {paymentSuccessMsg && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fade-in shadow-xs">
+          <Check className="w-4 h-4 text-emerald-600" />
+          <span>{paymentSuccessMsg}</span>
+        </div>
+      )}
 
       {/* Search & Filters Bar */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
@@ -190,15 +274,21 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                         {rep.services_summary || 'N/A'}
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          rep.payment_status === 'Paid'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : rep.payment_status === 'Partially Paid'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}>
-                          {rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openPaymentModal(rep)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer hover:shadow-xs transition ${
+                            rep.payment_status === 'Paid'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : rep.payment_status === 'Partially Paid'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                          }`}
+                          title="Click to update / settle payment"
+                        >
+                          <IndianRupee className="w-2.5 h-2.5" />
+                          <span>{rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})</span>
+                        </button>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
@@ -210,6 +300,17 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          onClick={() => openPaymentModal(rep)}
+                          className={`p-1.5 rounded-lg transition ${
+                            rep.payment_status === 'Paid'
+                              ? 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold'
+                          }`}
+                          title="Update / Settle Payment"
+                        >
+                          <IndianRupee className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => onViewReport(rep.id)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition"
@@ -265,17 +366,31 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
                   </p>
 
                   <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                      rep.payment_status === 'Paid'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : rep.payment_status === 'Partially Paid'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                        : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}>
-                      {rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openPaymentModal(rep)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        rep.payment_status === 'Paid'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : rep.payment_status === 'Partially Paid'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}
+                      title="Click to update payment"
+                    >
+                      <IndianRupee className="w-3 h-3" />
+                      <span>{rep.payment_status} (₹{rep.paid_amount}/{rep.total_amount})</span>
+                    </button>
 
                     <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => openPaymentModal(rep)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-semibold text-xs border border-emerald-200 active:scale-95"
+                        title="Update Payment"
+                      >
+                        <IndianRupee className="w-3.5 h-3.5" />
+                        <span>Pay</span>
+                      </button>
                       <button
                         onClick={() => onViewReport(rep.id)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-semibold text-xs border border-sky-200 active:scale-95"
@@ -298,6 +413,121 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
           </>
         )}
       </div>
+
+      {/* Settle Due / Update Payment Modal */}
+      {settlingReport && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 bg-gradient-to-r from-sky-900 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-300">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">Update Report Payment</h3>
+                  <p className="text-[11px] text-sky-200/80">{settlingReport.report_number} • {settlingReport.patient_name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSettlingReport(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSavePayment} className="p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Bill</span>
+                  <span className="font-bold text-slate-900 text-sm">₹{settlingReport.total_amount}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Already Paid</span>
+                  <span className="font-bold text-emerald-700 text-sm">₹{settlingReport.paid_amount}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Pending Due</span>
+                  <span className="font-bold text-rose-600 text-sm">₹{settlingReport.pending_amount}</span>
+                </div>
+              </div>
+
+              {/* Quick Settle Full Balance Button */}
+              {settlingReport.pending_amount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleQuickFullPay}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Mark as Fully Paid (Collect ₹{settlingReport.pending_amount} Due)</span>
+                </button>
+              )}
+
+              {/* Paid Amount Field */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Total Paid Amount (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max={settlingReport.total_amount}
+                    step="any"
+                    value={newPaidAmount}
+                    onChange={(e) => handlePaidAmountChange(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1">
+                  <span>Remaining Due: <strong className="text-rose-600">₹{Math.max(0, settlingReport.total_amount - (parseFloat(newPaidAmount) || 0))}</strong></span>
+                  <span>Total Bill: ₹{settlingReport.total_amount}</span>
+                </div>
+              </div>
+
+              {/* Payment Status Dropdown */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Payment Status
+                </label>
+                <select
+                  value={newPaymentStatus}
+                  onChange={(e) => setNewPaymentStatus(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="Paid">Paid (Full Amount Cleared)</option>
+                  <option value="Partially Paid">Partially Paid (Partial Due Remaining)</option>
+                  <option value="Pending">Pending (Unpaid)</option>
+                </select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSettlingReport(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPayment}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition active:scale-95 disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingPayment ? 'Updating...' : 'Save Payment'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

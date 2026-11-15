@@ -169,6 +169,34 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
     }
   };
 
+  // Auto-save test results and findings before switching to print preview so no inputs are lost
+  const handlePreviewAndPrint = async () => {
+    try {
+      setSaving(true);
+      const flattenedParams = [];
+      testResults.forEach(t => {
+        t.parameters.forEach(p => {
+          flattenedParams.push({
+            id: p.id,
+            result: p.result,
+            is_abnormal: p.is_abnormal
+          });
+        });
+      });
+
+      const currentStatus = report?.status === 'completed' ? 'completed' : 'draft';
+      await api.saveReportMedicalData(reportId, flattenedParams, xrayResults, currentStatus);
+      onViewReport(report.id);
+    } catch (err) {
+      console.error('Auto-save before preview error:', err);
+      if (confirm('Failed to auto-save results (' + err.message + '). Continue to preview anyway?')) {
+        onViewReport(report.id);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading || !report) {
     return (
       <div className="p-12 text-center text-slate-400">
@@ -226,11 +254,12 @@ export default function ReportEntry({ reportId, onBack, onViewReport }) {
 
           <button
             type="button"
-            onClick={() => onViewReport(report.id)}
-            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-sm transition"
+            disabled={saving}
+            onClick={handlePreviewAndPrint}
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-sm transition active:scale-95 disabled:opacity-50"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Preview & Print A4</span>
+            <span>{saving ? 'Saving...' : 'Preview & Print A4'}</span>
           </button>
         </div>
       </div>

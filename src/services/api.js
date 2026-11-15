@@ -72,26 +72,32 @@ export const api = {
     const logoUrl = settingsData.logo_url || settingsData.logo_path || '';
     const sigUrl = settingsData.signature_url || settingsData.signatory_signature_path || '';
 
+    const updatePayload = {
+      clinic_name: settingsData.clinic_name,
+      tagline: settingsData.tagline,
+      address: settingsData.address,
+      phone: settingsData.phone,
+      email: settingsData.email,
+      reg_no: settingsData.reg_no,
+      signatory_name: settingsData.signatory_name,
+      signatory_degree: settingsData.signatory_degree,
+      signatory_designation: settingsData.signatory_designation,
+      logo_url: logoUrl,
+      signature_url: sigUrl,
+      letterhead_mode: settingsData.letterhead_mode || 'digital',
+      letterhead_top_margin: settingsData.letterhead_top_margin || 35,
+      report_number_prefix: settingsData.report_number_prefix || 'AP-',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only update next_report_number if explicitly marked as dirty/changed
+    if (settingsData.update_report_counter && typeof settingsData.next_report_number === 'number') {
+      updatePayload.next_report_number = settingsData.next_report_number;
+    }
+
     const { data, error } = await supabase
       .from('tenant_settings')
-      .update({
-        clinic_name: settingsData.clinic_name,
-        tagline: settingsData.tagline,
-        address: settingsData.address,
-        phone: settingsData.phone,
-        email: settingsData.email,
-        reg_no: settingsData.reg_no,
-        signatory_name: settingsData.signatory_name,
-        signatory_degree: settingsData.signatory_degree,
-        signatory_designation: settingsData.signatory_designation,
-        logo_url: logoUrl,
-        signature_url: sigUrl,
-        letterhead_mode: settingsData.letterhead_mode || 'digital',
-        letterhead_top_margin: settingsData.letterhead_top_margin || 35,
-        report_number_prefix: settingsData.report_number_prefix || 'AP-',
-        next_report_number: settingsData.next_report_number || 1,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('tenant_id', tid)
       .select()
       .single();
@@ -308,6 +314,22 @@ export const api = {
   // -----------------------------------------------------------------------
   // REPORT REGISTRATION & NUMBER GENERATION
   // -----------------------------------------------------------------------
+  // Preview next report number WITHOUT incrementing the database counter
+  async previewNextReportNumber(tenantId = null) {
+    const tid = await this.getActiveTenantId(tenantId);
+    try {
+      const settings = await this.getSettings(tid);
+      const prefix = settings.report_number_prefix || 'AP-';
+      const digits = settings.report_number_digits || 6;
+      const nextNum = settings.next_report_number || 1;
+      const formatted = `${prefix}${String(nextNum).padStart(digits, '0')}`;
+      return { reportNumber: formatted };
+    } catch (err) {
+      console.warn('Failed to preview report number:', err);
+      return { reportNumber: 'Auto-assigned' };
+    }
+  },
+
   async generateNextReportNumber(tenantId = null) {
     const tid = await this.getActiveTenantId(tenantId);
     try {
@@ -331,21 +353,29 @@ export const api = {
     const tid = await this.getActiveTenantId(tenantId);
 
     // 1. Find or create patient within this tenant
+    // Matches BOTH phone AND name (case-insensitive) so family members sharing a phone stay separate
     let patientId = patientData.id;
     if (!patientId) {
-      const { data: existing } = await supabase
+      const cleanPhone = patientData.phone.trim();
+      const cleanName = patientData.name.trim();
+
+      let query = supabase
         .from('patients')
-        .select('id')
-        .eq('phone', patientData.phone.trim())
-        .limit(1)
-        .maybeSingle();
+        .select('id, name, age, gender')
+        .eq('phone', cleanPhone)
+        .ilike('name', cleanName);
+
+      if (tid) {
+        query = query.eq('tenant_id', tid);
+      }
+
+      const { data: existing } = await query.limit(1).maybeSingle();
 
       if (existing) {
         patientId = existing.id;
         await supabase
           .from('patients')
           .update({
-            name: patientData.name.trim(),
             age: parseInt(patientData.age),
             gender: patientData.gender,
             updated_at: new Date().toISOString(),
@@ -356,10 +386,10 @@ export const api = {
           .from('patients')
           .insert({
             tenant_id: tid,
-            name: patientData.name.trim(),
+            name: cleanName,
             age: parseInt(patientData.age),
             gender: patientData.gender,
-            phone: patientData.phone.trim(),
+            phone: cleanPhone,
           })
           .select()
           .single();

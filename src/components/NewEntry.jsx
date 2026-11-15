@@ -77,7 +77,7 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
 
   const initForm = async () => {
     try {
-      const { reportNumber: nextNo } = await api.generateNextReportNumber();
+      const { reportNumber: nextNo } = await api.previewNextReportNumber();
       setReportNumber(nextNo);
 
       const now = new Date();
