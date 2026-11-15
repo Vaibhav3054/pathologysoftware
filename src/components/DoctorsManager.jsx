@@ -72,6 +72,10 @@ export default function DoctorsManager() {
 
   const handleDelete = async (id, name) => {
     if (!canManageDoctors) return;
+    if (name?.trim().toLowerCase() === 'self / direct') {
+      alert('"Self / Direct" is the system default referral option and cannot be removed.');
+      return;
+    }
     if (!confirm(`Are you sure you want to remove "${name}" from the reference doctor list?`)) return;
     try {
       await api.deleteDoctor(id);
@@ -160,6 +164,11 @@ export default function DoctorsManager() {
                     {doc.name.replace(/^(Dr\.\s*)/i, '').charAt(0)}
                   </div>
                   <span className="font-semibold text-slate-800 text-sm truncate">{doc.name}</span>
+                  {doc.name.trim().toLowerCase() === 'self / direct' && (
+                    <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 font-semibold px-2 py-0.5 rounded-full shrink-0">
+                      System Default
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
@@ -170,13 +179,15 @@ export default function DoctorsManager() {
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => handleDelete(doc.id, doc.name)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                    title="Delete Doctor"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {doc.name.trim().toLowerCase() !== 'self / direct' && (
+                    <button
+                      onClick={() => handleDelete(doc.id, doc.name)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                      title="Delete Doctor"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

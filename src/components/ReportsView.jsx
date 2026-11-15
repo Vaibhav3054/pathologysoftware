@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   Search, 
@@ -98,11 +98,17 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
     }
   };
 
+  const reportsSeqRef = useRef(0);
+
   useEffect(() => {
-    loadReports();
+    const timer = setTimeout(() => {
+      loadReports();
+    }, 250);
+    return () => clearTimeout(timer);
   }, [search, statusFilter, paymentFilter, dateFilter]);
 
   const loadReports = async () => {
+    const seq = ++reportsSeqRef.current;
     try {
       setLoading(true);
       const list = await api.getReportsList({
@@ -111,11 +117,16 @@ export default function ReportsView({ onViewReport, onEditReport, onNewEntry }) 
         paymentStatus: paymentFilter,
         date: dateFilter
       });
+      if (seq !== reportsSeqRef.current) return;
       setReports(list);
     } catch (err) {
-      console.error('Failed to load reports list:', err);
+      if (seq === reportsSeqRef.current) {
+        console.error('Failed to load reports list:', err);
+      }
     } finally {
-      setLoading(false);
+      if (seq === reportsSeqRef.current) {
+        setLoading(false);
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Search, 
@@ -21,15 +21,27 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
   const [patientHistory, setPatientHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const searchCounterRef = useRef(0);
+
+  const formatAge = (age) => {
+    const num = parseInt(age);
+    if (isNaN(num) || num <= 0) return '< 1 Year (Infant)';
+    return `${num} Yrs`;
+  };
 
   useEffect(() => {
-    handleSearch('');
-  }, []);
+    const timer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearch = async (query) => {
+    const seq = ++searchCounterRef.current;
     try {
       setLoading(true);
       const res = await api.searchPatients(query);
+      if (seq !== searchCounterRef.current) return;
       setPatients(res);
       if (res.length > 0 && (!selectedPatient || !res.some(p => p.id === selectedPatient.id))) {
         selectPatient(res[0]);
@@ -38,9 +50,13 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
         setPatientHistory([]);
       }
     } catch (err) {
-      console.error('Search patients error:', err);
+      if (seq === searchCounterRef.current) {
+        console.error('Search patients error:', err);
+      }
     } finally {
-      setLoading(false);
+      if (seq === searchCounterRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -77,10 +93,7 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
             type="text"
             placeholder="Search by Patient Name or Phone..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              handleSearch(e.target.value);
-            }}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -122,7 +135,7 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
                     <div>
                       <h4 className="font-bold text-slate-800 text-xs">{p.name}</h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        {p.age} Yrs • {p.gender}
+                        {formatAge(p.age)} • {p.gender}
                       </p>
                       <p className="text-[10px] font-mono text-slate-400 mt-0.5">{p.phone}</p>
                     </div>
@@ -147,7 +160,7 @@ export default function PatientsView({ onViewReport, onEditReport, onNewEntryFor
                   <div>
                     <h3 className="text-base font-bold text-slate-900">{selectedPatient.name}</h3>
                     <p className="text-xs text-slate-500">
-                      Age: <strong className="text-slate-700">{selectedPatient.age} Years</strong> • Gender: <strong className="text-slate-700">{selectedPatient.gender}</strong>
+                      Age: <strong className="text-slate-700">{formatAge(selectedPatient.age)}</strong> • Gender: <strong className="text-slate-700">{selectedPatient.gender}</strong>
                     </p>
                     <p className="text-xs font-mono text-sky-700 mt-0.5">
                       Phone: <strong>{selectedPatient.phone}</strong>

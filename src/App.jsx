@@ -69,6 +69,9 @@ export default function App() {
     signOut,
     refreshSession,
     isTrial,
+    isComplimentary,
+    isUnlimited,
+    getDaysRemaining,
     getTrialDaysRemaining,
     upgradeSubscription
   } = useAuth();
@@ -591,6 +594,16 @@ export default function App() {
               <span className="font-bold text-xs tracking-tight text-white block truncate max-w-[150px] sm:max-w-[240px]">
                 {labDisplayName}
               </span>
+              {isUnlimited && (
+                <span className="text-[9px] font-bold text-purple-300 block leading-none mt-0.5">
+                  Unlimited Plan
+                </span>
+              )}
+              {!isUnlimited && isComplimentary && (
+                <span className="text-[9px] font-bold text-amber-300 block leading-none mt-0.5">
+                  {getDaysRemaining()}d Free Access
+                </span>
+              )}
               {isTrial && (
                 <span className="text-[9px] font-bold text-emerald-400 block leading-none mt-0.5">
                   {getTrialDaysRemaining()}d Free Trial

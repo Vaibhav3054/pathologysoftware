@@ -162,16 +162,39 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
   // Quick Add Doctor
   const handleAddDoctor = async (e) => {
     e.preventDefault();
-    if (!newDoctorInput.trim()) return;
+    const cleanDocName = newDoctorInput.trim();
+    if (!cleanDocName) return;
+
+    // Check if doctor already exists locally (case-insensitive)
+    const existingDoc = doctorsList.find(d => d.name.trim().toLowerCase() === cleanDocName.toLowerCase());
+    if (existingDoc) {
+      setDoctorName(existingDoc.name);
+      setNewDoctorInput('');
+      setShowAddDoctorModal(false);
+      return;
+    }
+
     try {
-      await api.addDoctor(newDoctorInput.trim());
+      await api.addDoctor(cleanDocName);
       const updatedDocs = await api.getDoctors();
       setDoctorsList(updatedDocs);
-      setDoctorName(newDoctorInput.trim());
+      setDoctorName(cleanDocName);
       setNewDoctorInput('');
       setShowAddDoctorModal(false);
     } catch (err) {
-      alert('Doctor already exists or failed to save.');
+      // If duplicate or network error, re-fetch list and select if found
+      try {
+        const freshDocs = await api.getDoctors();
+        setDoctorsList(freshDocs);
+        const matched = freshDocs.find(d => d.name.trim().toLowerCase() === cleanDocName.toLowerCase());
+        if (matched) {
+          setDoctorName(matched.name);
+          setNewDoctorInput('');
+          setShowAddDoctorModal(false);
+          return;
+        }
+      } catch (_) {}
+      alert('Failed to save doctor: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -334,7 +357,10 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setPatientId(null);
+                }}
                 placeholder="Full Name"
                 required
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none transition"
@@ -397,6 +423,9 @@ export default function NewEntry({ onRegistrationComplete, prefilledPatient = nu
                 onChange={(e) => setDoctorName(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none transition"
               >
+                {!doctorsList.some(d => d.name?.trim().toLowerCase() === 'self / direct') && (
+                  <option value="Self / Direct">Self / Direct</option>
+                )}
                 {doctorsList.map((doc) => (
                   <option key={doc.id} value={doc.name}>
                     {doc.name}
